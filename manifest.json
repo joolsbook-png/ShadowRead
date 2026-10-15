@@ -1,0 +1,16 @@
+{
+  "name": "ShadowRead — Читательский Архив",
+  "short_name": "ShadowRead",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#181224",
+  "theme_color": "#181224",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23181224'/%3E%3Ccircle cx='256' cy='256' r='210' fill='%232d2242' stroke='%23c084fc' stroke-width='12'/%3E%3Cpolygon points='145,210 125,95 215,165' fill='%230d0818' stroke='%23c084fc' stroke-width='10'/%3E%3Cpolygon points='367,210 387,95 297,165' fill='%230d0818' stroke='%23c084fc' stroke-width='10'/%3E%3Ccircle cx='256' cy='265' r='125' fill='%230d0818' stroke='%23c084fc' stroke-width='10'/%3E%3Cellipse cx='210' cy='255' rx='22' ry='28' fill='%23fbbf24'/%3E%3Cellipse cx='302' cy='255' rx='22' ry='28' fill='%23fbbf24'/%3E%3Cellipse cx='210' cy='255' rx='7' ry='20' fill='%2309090b'/%3E%3Cellipse cx='302' cy='255' rx='7' ry='20' fill='%2309090b'/%3E%3Cpath d='M225 315 Q240 335 256 315 Q272 335 287 315' stroke='%23f5eeff' stroke-width='8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
