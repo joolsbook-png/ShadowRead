@@ -4064,13 +4064,111 @@
       await applyImportedJsonString(text);
     }
 
-    async function applyImportedJsonString(text) {
+        async function applyImportedJsonString(text) {
       try {
         const data = JSON.parse(text);
-        if (Array.isArray(data.books)) {
-          await dbClearStore('books');
-          for (const b of data.books) await dbPut('books', b);
+        const rawList = Array.isArray(data) ? data : (Array.isArray(data.books) ? data.books : null);
+        if (!rawList || rawList.length === 0) {
+          alert('В этом файле не найден список книг!');
+          return;
         }
+
+        const palettes = [
+          ['#581c87','#1e1b4b'], ['#701a75','#0f172a'], ['#831843','#1f2937'],
+          ['#312e81','#111827'], ['#4c0519','#18181b'], ['#0c4a6e','#1e1b4b'], ['#064e3b','#111827']
+        ];
+
+        await dbClearStore('books');
+        let importedCount = 0;
+
+        for (let i = 0; i < rawList.length; i++) {
+          const item = rawList[i];
+          if (!item || typeof item !== 'object') continue;
+
+          // Если это уже родная книга из ShadowRead
+          if (item.id && item.subratings && item.cover) {
+            await dbPut('books', item);
+            importedCount++;
+            continue;
+          }
+
+          // Иначе — конвертируем на лету из Leero / CSVJSON / сторонней читалки!
+          const title = String(item.title || item.Title || item.name || 'Без названия').trim();
+          const author = String(item.authors || item.author || item.Authors || 'Неизвестный автор').replace(/;/g, ', ').trim();
+          const series = String(item.series || item.series_name || item.cycle || '').trim();
+          const seriesOrder = Number(item.series_number || item.series_index || item.seriesOrder || item.volume || 0) || null;
+
+          const totalPages = Math.max(1, Number(item.page_count || item.pages || item.total_pages || item.totalPages || 380) || 380);
+          let readPages = Number(item.current_page || item.read_pages || item.readPages || 0) || 0;
+
+          // Определяем полку (статус)
+          const rawSt = String(item.status || item.reading_status || item.shelf || item.state || '').toLowerCase();
+          let status = 'plan';
+          if (rawSt.includes('read') && !rawSt.includes('reading') && !rawSt.includes('to_read') && !rawSt.includes('want') && !rawSt.includes('plan')) {
+            status = 'read';
+          } else if (rawSt.includes('finish') || rawSt.includes('done') || rawSt.includes('completed') || rawSt.includes('прочит') || item.is_read === true || item.finished_at || item.date_read) {
+            status = 'read';
+          } else if (rawSt.includes('reading') || rawSt.includes('current') || rawSt.includes('progress') || rawSt.includes('читаю') || (readPages > 0 && readPages < totalPages)) {
+            status = 'reading';
+          }
+          if (status === 'read') readPages = totalPages;
+
+          // Оценка (если была по 5-балльной шкале — умножаем на 2 для нашей 10-балльной)
+          let rawRating = Number(item.rating || item.user_rating || item.score || item.stars || 0) || 0;
+          if (rawRating > 0 && rawRating <= 5 && !item.subratings) rawRating = rawRating * 2;
+
+          // Дата завершения
+          const rawFin = String(item.finished_at || item.date_read || item.read_date || item.finishDate || '');
+          const finishDate = rawFin.length >= 10 ? rawFin.slice(0, 10) : '';
+
+          // Жанры и теги
+          const parseArr = (val) => {
+            if (Array.isArray(val)) return val.map(String).filter(Boolean);
+            if (typeof val === 'string' && val.trim()) return val.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+            return [];
+          };
+          const genres = parseArr(item.genres || item.genre || item.categories);
+          const tags = parseArr(item.tags || item.tropes || item.shelves);
+
+          // Обложка
+          const coverUrl = String(item.cover_url || item.cover || item.image_url || '').trim();
+          const [c1, c2] = palettes[i % palettes.length];
+          const cover = (coverUrl.startsWith('http') || coverUrl.startsWith('data:'))
+            ? coverUrl
+            : makeGeneratedCover(title, author, c1, c2, '✦');
+
+          const bookObj = {
+            id: String(item.id || item.book_id || ('b_imp_' + Date.now() + '_' + i)),
+            title,
+            author,
+            series,
+            seriesOrder,
+            status,
+            favorite: Boolean(item.favorite || item.is_favorite || item.liked),
+            totalPages,
+            readPages,
+            finishDate,
+            rereadCount: Number(item.reread_count || item.rereadCount || 0) || 0,
+            acqType: item.format === 'paperback' || item.format === 'hardcover' ? 'buy-paper' : 'pirate',
+            price: Number(item.price || 0) || 0,
+            purchaseMonth: new Date().toISOString().slice(0, 7),
+            rating: rawRating,
+            subratings: item.subratings || { spice: 5, romance: 7, glass: 6, plot: 8, soul: 8, humor: 6, pace: 8, depth: 8 },
+            genres,
+            tags,
+            favChars: String(item.favChars || ''),
+            hatedChars: String(item.hatedChars || ''),
+            reviewText: String(item.review || item.notes || item.comment || item.reviewText || ''),
+            cover,
+            moodboard: Array.isArray(item.moodboard) ? item.moodboard : [],
+            notes: Array.isArray(item.notes) ? item.notes : [],
+            createdAt: Date.now() - i * 1000
+          };
+
+          await dbPut('books', bookObj);
+          importedCount++;
+        }
+
         if (Array.isArray(data.sessions)) {
           await dbClearStore('sessions');
           for (const s of data.sessions) await dbPut('sessions', s);
@@ -4080,11 +4178,12 @@
 
         await loadAppState();
         document.getElementById('backupModal').classList.add('hidden');
-        alert('🎉 Библиотека успешно восстановлена!');
+        alert(`🎉 Успешно загружено книг в архив: ${importedCount} шт.!`);
       } catch (err) {
-        alert('Ошибка чтения бэкапа. Проверь, что JSON скопирован полностью от первой { до последней }.');
+        alert('Ошибка чтения JSON: ' + err.message);
       }
-    }
+        }
+      
 
     async function resetToDemoData() {
       await seedDemoData();
