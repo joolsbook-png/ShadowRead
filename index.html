@@ -4246,6 +4246,16 @@
       }
         }
       
+          function importFullBackupJson(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        await applyImportedJsonString(ev.target.result);
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+          }
       
 
     async function resetToDemoData() {
