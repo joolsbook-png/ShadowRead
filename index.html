@@ -2466,8 +2466,124 @@ const ACQ_META = {
       renderModalNotesList();
       renderMoodboardItems();
 
+      // Сбрасываем панель аннотации в компактный свёрнутый вид при открытии карточки
+      document.getElementById('annotationWall').classList.add('hidden');
+      document.getElementById('annotationArrow').textContent = '▼';
+      updateAnnotationBadge();
+
+      // Запускаем умывающегося котика в левом углу карточки
+      modalCatAngryTimer = null;
+      renderModalGroomingCat(false);
+
       document.getElementById('bookModal').classList.remove('hidden');
     }
+
+    function toggleAnnotationWall() {
+      const wall = document.getElementById('annotationWall');
+      const isHidden = wall.classList.toggle('hidden');
+      document.getElementById('annotationArrow').textContent = isHidden ? '▼' : '▲';
+      updateAnnotationBadge();
+    }
+
+    function updateAnnotationBadge() {
+      const val = (document.getElementById('modalAnnotation').value || '').trim();
+      const badge = document.getElementById('annotationPreviewBadge');
+      const isHidden = document.getElementById('annotationWall').classList.contains('hidden');
+      if (!badge) return;
+      if (!val) {
+        badge.textContent = 'Пусто';
+      } else {
+        badge.textContent = isHidden ? `Есть текст (${val.length} симв.) — нажми!` : 'Развёрнута';
+      }
+    }
+
+    let modalCatAngryTimer = null;
+    let angryCatQuoteIdx = 0;
+    const ANGRY_GROOM_QUOTES = [
+      '«ФШШШ! Руки убери! Я вообще-то намывал своё левое ухо, теперь всё заново перемывать!»',
+      '«Ты бессмертная, что ли?! Не видишь — Книжная Тень принимает банные процедуры!»',
+      '«Кусь за палец! Ещё раз собьёшь мне ритм умывания — перепутаю тебе все закладки в книгах!»',
+      '«Возмутительное неуважение к кошачьей гигиене! Уйди, женщина, не мешай вылизываться!»'
+    ];
+
+    function renderModalGroomingCat(isAngry = false) {
+      const box = document.getElementById('modalGroomingCatSvg');
+      const badge = document.getElementById('modalGroomingBadge');
+      const speech = document.getElementById('modalGroomingSpeech');
+      if (!box) return;
+
+      if (isAngry) {
+        badge.textContent = '😾 ФШШШ! Не трожь!';
+        badge.style.background = '#e11d48';
+        badge.style.color = '#fff';
+        speech.textContent = ANGRY_GROOM_QUOTES[angryCatQuoteIdx % ANGRY_GROOM_QUOTES.length];
+        speech.style.color = '#fda4af';
+
+        box.innerHTML = `<svg viewBox="0 0 120 120" class="w-full h-full overflow-visible cat-angry-shake">
+          <circle cx="60" cy="64" r="44" fill="rgba(225,29,72,0.28)" class="shadow-aura"/>
+          <path d="M35 95 Q8 82 14 48" fill="none" stroke="#110c1d" stroke-width="11" stroke-linecap="round"/>
+          <ellipse cx="60" cy="86" rx="27" ry="20" fill="#110c1d" stroke="#f43f5e" stroke-width="1.8"/>
+          <!-- Прижатые сердитые уши -->
+          <polygon points="34,48 16,36 48,38" fill="#110c1d" stroke="#f43f5e" stroke-width="1.8"/>
+          <polygon points="86,48 104,36 72,38" fill="#110c1d" stroke="#f43f5e" stroke-width="1.8"/>
+          <circle cx="60" cy="56" r="26" fill="#110c1d" stroke="#f43f5e" stroke-width="1.8"/>
+          <!-- Злые сдвинутые брови и горящие глаза -->
+          <line x1="38" y1="45" x2="54" y2="52" stroke="#f43f5e" stroke-width="3" stroke-linecap="round"/>
+          <line x1="82" y1="45" x2="66" y2="52" stroke="#f43f5e" stroke-width="3" stroke-linecap="round"/>
+          <ellipse cx="48" cy="55" rx="6" ry="6" fill="#fbbf24"/>
+          <ellipse cx="72" cy="55" rx="6" ry="6" fill="#fbbf24"/>
+          <ellipse cx="48" cy="55" rx="1.8" ry="5" fill="#991b1b"/>
+          <ellipse cx="72" cy="55" rx="1.8" ry="5" fill="#991b1b"/>
+          <!-- Шипящая пасть с клыками -->
+          <path d="M50 70 Q60 62 70 70 Z" fill="#991b1b" stroke="#f43f5e" stroke-width="1.5"/>
+          <polygon points="53,68 55,73 57,68" fill="#fff"/>
+          <polygon points="63,68 65,73 67,68" fill="#fff"/>
+          <!-- Лапка с выпущенными когтями -->
+          <g transform="translate(76, 62)">
+            <circle cx="10" cy="10" r="10" fill="#110c1d" stroke="#f43f5e" stroke-width="1.5"/>
+            <path d="M3 2 L-2 -5 M9 0 L8 -8 M15 2 L20 -5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+          </g>
+        </svg>`;
+      } else {
+        badge.textContent = '🐾 Намывает ушки...';
+        badge.style.background = 'var(--accent-soft)';
+        badge.style.color = 'var(--text-main)';
+        speech.textContent = '«Мрр... Только попробуй ткнуть в меня пальцем, когда я навожу марафет!»';
+        speech.style.color = 'var(--text-muted)';
+
+        box.innerHTML = `<svg viewBox="0 0 120 120" class="w-full h-full overflow-visible">
+          <circle cx="60" cy="64" r="42" fill="rgba(168,85,247,0.18)" class="shadow-aura"/>
+          <path class="shadow-tail" d="M35 92 Q12 82 16 58" fill="none" stroke="#110c1d" stroke-width="8" stroke-linecap="round"/>
+          <ellipse cx="60" cy="86" rx="25" ry="19" fill="#110c1d" stroke="rgba(192,132,252,0.45)" stroke-width="1.5"/>
+          <g class="cat-groom-head">
+            <polygon points="34,48 30,18 52,36" fill="#110c1d" stroke="rgba(192,132,252,0.5)" stroke-width="1.5"/>
+            <polygon points="86,48 90,18 68,36" fill="#110c1d" stroke="rgba(192,132,252,0.5)" stroke-width="1.5"/>
+            <circle cx="60" cy="56" r="25" fill="#110c1d" stroke="rgba(192,132,252,0.55)" stroke-width="1.5"/>
+            <!-- Довольно прищуренные глазки -->
+            <path d="M42 54 Q48 48 54 54" stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M66 54 Q72 48 78 54" stroke="#c084fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <!-- Милый розовый язычок -->
+            <path d="M54 67 Q60 71 66 67" stroke="#f5eeff" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <ellipse cx="63" cy="70" rx="3.5" ry="4.5" fill="#f472b6"/>
+          </g>
+          <!-- Умывающаяся лапка -->
+          <g class="cat-groom-paw">
+            <ellipse cx="78" cy="74" rx="8" ry="13" transform="rotate(-20 78 74)" fill="#110c1d" stroke="#c084fc" stroke-width="1.8"/>
+            <circle cx="75" cy="68" r="4" fill="#e879f9" opacity="0.85"/>
+          </g>
+        </svg>`;
+      }
+    }
+
+    function pokeGroomingCat() {
+      angryCatQuoteIdx++;
+      if (modalCatAngryTimer) clearTimeout(modalCatAngryTimer);
+      renderModalGroomingCat(true);
+      modalCatAngryTimer = setTimeout(() => {
+        renderModalGroomingCat(false);
+      }, 4000);
+    }
+      
 
     function closeBookModal() {
       document.getElementById('bookModal').classList.add('hidden');
