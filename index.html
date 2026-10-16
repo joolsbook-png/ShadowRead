@@ -2262,9 +2262,12 @@ const ACQ_META = {
 
       const acqBadge = b.acqType === 'pirate'
         ? '<span class="px-1 py-0.5 rounded bg-black/75 text-[9px]" title="Спирачена">🏴‍☠️</span>'
-        : ((b.acqType === 'buy-paper' || b.acqType === 'buy-ebook') && Number(b.price) > 0
-            ? `<span class="px-1 py-0.5 rounded bg-emerald-950/85 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">${b.price}₽</span>`
-            : '');
+        : (b.acqType === 'sub'
+            ? `<span class="px-1 py-0.5 rounded bg-amber-950/85 text-amber-300 border border-amber-500/30 text-[9px] font-bold" title="ЛитРес / Подписка">🎧${Number(b.price) > 0 ? ' ' + b.price + '₽' : ''}</span>`
+            : ((b.acqType === 'buy-paper' || b.acqType === 'buy-ebook') && Number(b.price) > 0
+                ? `<span class="px-1 py-0.5 rounded bg-emerald-950/85 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">${b.price}₽</span>`
+                : ''));
+      
 
       const quickBtn = b.status === 'reading'
         ? `<button onclick="startReadingAndOpenTracker(event, '${b.id}')" class="w-full py-1 rounded-lg btn-accent text-[10px] font-bold mt-1">⏱️ В трекер</button>`
