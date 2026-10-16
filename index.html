@@ -173,25 +173,25 @@
     /* Interactive Book Fan */
     .fan-stage {
       position: relative;
-      height: 235px;
+      height: 185px;
       width: 100%;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      padding-bottom: 12px;
+      padding-bottom: 8px;
       user-select: none;
       touch-action: pan-y;
     }
     .fan-book {
       position: absolute;
-      width: 118px;
-      height: 178px;
-      border-radius: 11px;
+      width: 96px;
+      height: 144px;
+      border-radius: 10px;
       overflow: hidden;
       cursor: pointer;
       transform-origin: bottom center;
       transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, filter 0.28s ease;
-      box-shadow: 0 8px 22px rgba(0,0,0,0.65);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.65);
       border: 2px solid rgba(255,255,255,0.22);
       background: #1f192e;
     }
@@ -203,14 +203,14 @@
     }
     .fan-book.is-active {
       border-color: var(--accent);
-      box-shadow: 0 16px 34px rgba(0,0,0,0.85), 0 0 20px var(--accent);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.85), 0 0 18px var(--accent);
       filter: brightness(1.06);
     }
     .fan-book:not(.is-active) {
       filter: brightness(0.75);
     }
 
-    /* Shadow Cat Floating Animation */
+    /* Shadow Cat Floating & Grooming Animations */
     @keyframes shadowFloat {
       0%, 100% { transform: translateY(0px) scale(1); }
       50% { transform: translateY(-5px) scale(1.02); }
@@ -223,9 +223,28 @@
       0%, 100% { opacity: 0.45; transform: scale(0.95); }
       50% { opacity: 0.85; transform: scale(1.08); }
     }
+    @keyframes groomPawMove {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      45% { transform: translateY(-18px) translateX(-4px) rotate(-22deg); }
+      65% { transform: translateY(-10px) translateX(-2px) rotate(-10deg); }
+    }
+    @keyframes groomHeadTilt {
+      0%, 100% { transform: rotate(0deg); }
+      45% { transform: rotate(7deg) translateY(2px); }
+    }
+    @keyframes angryShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-4px) rotate(-2deg); }
+      40%, 80% { transform: translateX(4px) rotate(2deg); }
+    }
     .shadow-cat-anim { animation: shadowFloat 3.6s ease-in-out infinite; }
     .shadow-tail { transform-origin: 30px 90px; animation: tailSway 2.8s ease-in-out infinite; }
     .shadow-aura { animation: smokePulse 3s ease-in-out infinite; }
+    .cat-groom-paw { transform-origin: 78px 82px; animation: groomPawMove 1.5s ease-in-out infinite; }
+    .cat-groom-head { transform-origin: 60px 58px; animation: groomHeadTilt 1.5s ease-in-out infinite; }
+    .cat-angry-shake { animation: angryShake 0.4s ease-in-out; }
+    
+      
 
     /* Freeform Review Moodboard */
     .moodboard-canvas {
