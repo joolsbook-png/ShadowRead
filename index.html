@@ -3240,17 +3240,28 @@
         const dateStr = `${monthPrefix}-${String(d).padStart(2, '0')}`;
         const daySessions = state.sessions.filter(s => s.date === dateStr);
         const totalPages = daySessions.reduce((acc, s) => acc + (Number(s.pages) || 0), 0);
-        const lastBook = daySessions.length ? state.books.find(b => b.id === daySessions[daySessions.length - 1].bookId) : null;
+
+        // Ищем также книги, у которых стоит дата завершения (finishDate) в этот день!
+        const finishedThatDay = state.books.filter(b => b.status === 'read' && b.finishDate === dateStr);
+        const sessionBook = daySessions.length ? state.books.find(b => b.id === daySessions[daySessions.length - 1].bookId) : null;
+        const displayBooks = finishedThatDay.length > 0 ? finishedThatDay : (sessionBook ? [sessionBook] : []);
+        const hasActivity = totalPages > 0 || displayBooks.length > 0;
+        const primaryBook = displayBooks[0] || null;
 
         html += `
-          <div class="h-16 sm:h-22 rounded-xl p-1 sm:p-1.5 flex flex-col justify-between relative overflow-hidden border transition ${totalPages > 0 ? 'theme-card' : 'theme-card-secondary opacity-70'}" style="border-color: var(--border-color)">
+          <div ${primaryBook ? `onclick="openBookModal('${primaryBook.id}')"` : ''} 
+               class="h-16 sm:h-22 rounded-xl p-1 sm:p-1.5 flex flex-col justify-between relative overflow-hidden border transition ${hasActivity ? 'theme-card cursor-pointer hover:scale-105' : 'theme-card-secondary opacity-70'}" style="border-color: var(--border-color)">
             <div class="flex items-center justify-between text-[10px] sm:text-[11px] font-bold z-10">
               <span>${d}</span>
-              ${totalPages > 0 ? `<span class="px-1 rounded bg-black/75 text-[9px]" style="color: var(--accent)">+${totalPages}</span>` : ''}
+              ${totalPages > 0 
+                ? `<span class="px-1 rounded bg-black/75 text-[9px]" style="color: var(--accent)">+${totalPages}</span>` 
+                : (finishedThatDay.length > 0 ? `<span class="px-1 rounded bg-emerald-600/90 text-white text-[8px]">✓ ${finishedThatDay.length}</span>` : '')}
             </div>
-            ${lastBook ? `
-              <div class="flex items-center justify-center my-auto z-10">
-                <img src="${lastBook.cover}" class="w-7 h-10 sm:w-9 sm:h-13 object-cover rounded shadow-md border border-white/20" title="${escapeHtmlAttr(lastBook.title)}" />
+            ${displayBooks.length > 0 ? `
+              <div class="flex items-center justify-center -space-x-2 my-auto z-10">
+                ${displayBooks.slice(0, 2).map(bk => `
+                  <img src="${bk.cover}" class="w-7 h-10 sm:w-8 sm:h-12 object-cover rounded shadow-md border border-white/30" title="${escapeHtmlAttr(bk.title)}" />
+                `).join('')}
               </div>
             ` : ''}
           </div>
@@ -3259,23 +3270,28 @@
       grid.innerHTML = html;
 
       const logBox = document.getElementById('recentSessionsList');
-      const sortedSessions = [...state.sessions].sort((a, b) => b.date.localeCompare(a.date));
-      if (!sortedSessions.length) {
-        logBox.innerHTML = `<p class="text-xs italic" style="color: var(--text-muted)">Сессий пока нет.</p>`;
+      // Объединяем сессии и завершённые книги этого месяца для наглядной истории
+      const finishedInMonth = state.books
+        .filter(b => b.status === 'read' && (b.finishDate || '').startsWith(monthPrefix))
+        .map(b => ({ isFinishEvent: true, date: b.finishDate, bookId: b.id, pages: b.totalPages, note: 'Книга прочитана целиком!' }));
+
+      const combinedEvents = [...state.sessions, ...finishedInMonth].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      if (!combinedEvents.length) {
+        logBox.innerHTML = `<p class="text-xs italic" style="color: var(--text-muted)">В этом месяце пока нет записей.</p>`;
         return;
       }
-      logBox.innerHTML = sortedSessions.slice(0, 20).map(s => {
+      logBox.innerHTML = combinedEvents.slice(0, 25).map(s => {
         const b = state.books.find(x => x.id === s.bookId);
-        const stopInfo = s.stopPage ? ` • до стр. ${s.stopPage}` : '';
+        const badge = s.isFinishEvent ? `✅ Дочитана (${s.pages} стр.)` : `+${s.pages} стр.`;
         return `
-          <div class="theme-card-secondary rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-xs">
+          <div onclick="${b ? `openBookModal('${b.id}')` : ''}" class="theme-card-secondary rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-xs cursor-pointer hover:opacity-90">
             <div class="flex items-center gap-2 min-w-0">
               <span class="font-bold flex-shrink-0" style="color: var(--accent)">${s.date}</span>
               <span class="font-semibold truncate">${escapeHtml(b ? b.title : 'Книга')}</span>
               ${s.note ? `<span class="italic opacity-75 truncate hidden sm:inline">«${escapeHtml(s.note)}»</span>` : ''}
             </div>
             <div class="flex items-center gap-1.5 flex-shrink-0">
-              <span class="px-2 py-0.5 rounded-md btn-soft font-bold">+${s.pages} стр.${stopInfo}</span>
+              <span class="px-2 py-0.5 rounded-md btn-soft font-bold">${badge} ↗</span>
             </div>
           </div>
         `;
@@ -3283,7 +3299,7 @@
     }
 
     /* =========================================================================
-       12. ИТОГИ МЕСЯЦА (СЕТКА 3x4 + БЕЗОПАСНОЕ СОХРАНЕНИЕ ДЛЯ APK)
+       12. ИТОГИ МЕСЯЦА (СОРТИРОВКА ПО ДАТЕ ПРОЧТЕНИЯ + КЛИК В КНИГУ)
        ========================================================================= */
     function getWrapupGridSettings() {
       const mode = document.getElementById('wrapupGridSelect').value || '4x3';
@@ -3345,7 +3361,18 @@
       }
 
       const monthBooks = state.books.filter(b => b.status === 'read' && (b.finishDate || '').startsWith(monthVal));
-      return monthBooks.length > 0 ? monthBooks : state.books.filter(b => b.status === 'read');
+      const listToUse = monthBooks.length > 0 ? monthBooks : state.books.filter(b => b.status === 'read');
+
+      // Сортируем СТРОГО хронологически по дате прочтения (от 1-го числа к концу месяца)!
+      // Если две книги прочитаны в один день — сначала идёт одиночная (или по порядку тома в серии)
+      return [...listToUse].sort((a, b) => {
+        const dA = a.finishDate || '9999-99-99';
+        const dB = b.finishDate || '9999-99-99';
+        if (dA !== dB) return dA.localeCompare(dB);
+        const sA = a.series ? (Number(a.seriesOrder) || 1) : 0;
+        const sB = b.series ? (Number(b.seriesOrder) || 1) : 0;
+        return sA - sB;
+      });
     }
 
     async function renderWrapupCanvas() {
@@ -3370,8 +3397,24 @@
       tabsEl.innerHTML = tabsHtml;
       document.getElementById('wrapupCountInfo').textContent = `Книг: ${books.length} • Листов: ${totalSheets}`;
 
+      // Рисуем кликабельные мини-карточки под холстом, чтобы проваливаться в книгу по тычку!
+      const clickBox = document.getElementById('wrapupClickableBooks');
+      if (clickBox) {
+        clickBox.innerHTML = books.map((b, idx) => `
+          <div onclick="openBookModal('${b.id}')" class="theme-card-secondary rounded-xl p-1.5 flex flex-col items-center text-center cursor-pointer hover:scale-105 transition border" style="border-color: var(--border-color)">
+            <div class="relative w-full aspect-[2/3] rounded-lg overflow-hidden mb-1">
+              <img src="${b.cover}" class="w-full h-full object-cover" />
+              <span class="absolute top-1 left-1 bg-black/80 text-white text-[9px] font-bold px-1.5 rounded">#${idx + 1}</span>
+            </div>
+            <div class="text-[10px] font-bold line-clamp-1 w-full">${escapeHtml(b.title)}</div>
+            <div class="text-[9px] opacity-75">${b.finishDate ? b.finishDate.slice(8, 10) + ' числа' : ''}</div>
+          </div>
+        `).join('');
+      }
+
       await drawWrapupSheetOnCanvas(books, state.wrapupSheetIndex, cols, rows, perSheet, totalSheets);
     }
+      
 
     async function drawWrapupSheetOnCanvas(books, sheetIdx, cols, rows, perSheet, totalSheets) {
       const canvas = document.getElementById('wrapupExportCanvas');
