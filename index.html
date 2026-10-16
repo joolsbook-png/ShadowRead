@@ -2332,6 +2332,17 @@ const ACQ_META = {
       document.getElementById('existingSeriesList').innerHTML = [...seriesSet].map(s => `<option value="${escapeHtmlAttr(s)}">`).join('');
 
       if (existing) {
+        // Авто-перенос старой заметки «Аннотация» в новое отдельное окно!
+        let extractedAnnotation = existing.annotation || '';
+        let cleanedNotes = JSON.parse(JSON.stringify(existing.notes || []));
+        if (!extractedAnnotation && cleanedNotes.length > 0) {
+          const annIdx = cleanedNotes.findIndex(n => n.page === 'Аннотация' || (n.id && String(n.id).startsWith('n_desc_')));
+          if (annIdx !== -1) {
+            extractedAnnotation = cleanedNotes[annIdx].content || '';
+            cleanedNotes.splice(annIdx, 1);
+          }
+        }
+
         document.getElementById('bookModalHeaderTitle').textContent = existing.title;
         document.getElementById('deleteBookBtn').classList.remove('hidden');
         document.getElementById('modalTitle').value = existing.title || '';
@@ -2346,6 +2357,7 @@ const ACQ_META = {
         document.getElementById('modalAcqType').value = existing.acqType || 'pirate';
         document.getElementById('modalPriceInput').value = existing.price || '';
         document.getElementById('modalPurchaseMonthInput').value = existing.purchaseMonth || currentMonth;
+        document.getElementById('modalAnnotation').value = extractedAnnotation;
         document.getElementById('modalMainRating').value = existing.rating ?? 9.0;
         document.getElementById('modalFavChars').value = existing.favChars || '';
         document.getElementById('modalHatedChars').value = existing.hatedChars || '';
@@ -2357,7 +2369,7 @@ const ACQ_META = {
         modalDraft.subratings = { spice: 5, romance: 7, glass: 7, plot: 8, soul: 8, humor: 6, pace: 8, depth: 8, ...(existing.subratings || {}) };
         modalDraft.genres = [...(existing.genres || [])];
         modalDraft.tags = [...(existing.tags || [])];
-        modalDraft.notes = JSON.parse(JSON.stringify(existing.notes || []));
+        modalDraft.notes = cleanedNotes;
         modalDraft.moodboard = JSON.parse(JSON.stringify(existing.moodboard || []));
       } else {
         document.getElementById('bookModalHeaderTitle').textContent = 'Новая книга в архив';
@@ -2374,6 +2386,7 @@ const ACQ_META = {
         document.getElementById('modalAcqType').value = 'pirate';
         document.getElementById('modalPriceInput').value = '';
         document.getElementById('modalPurchaseMonthInput').value = currentMonth;
+        document.getElementById('modalAnnotation').value = '';
         document.getElementById('modalMainRating').value = 8.5;
         document.getElementById('modalFavChars').value = '';
         document.getElementById('modalHatedChars').value = '';
@@ -2437,11 +2450,16 @@ const ACQ_META = {
 
     function toggleModalAcqFields() {
       const acq = document.getElementById('modalAcqType').value;
-      const isBuy = acq === 'buy-paper' || acq === 'buy-ebook';
-      document.getElementById('modalPriceWrap').style.opacity = isBuy ? '1' : '0.4';
-      document.getElementById('modalPurchaseMonthWrap').style.opacity = isBuy ? '1' : '0.4';
+      const isBuyOrSub = acq === 'buy-paper' || acq === 'buy-ebook' || acq === 'sub';
+      document.getElementById('modalPriceWrap').style.opacity = isBuyOrSub ? '1' : '0.4';
+      document.getElementById('modalPurchaseMonthWrap').style.opacity = isBuyOrSub ? '1' : '0.4';
+      const priceLbl = document.getElementById('modalPriceLabel');
+      if (priceLbl) {
+        priceLbl.textContent = acq === 'sub' ? 'Стоимость подписки (или 0 ₽):' : 'Стоимость покупки (₽):';
+      }
     }
-
+      
+    
     function toggleModalFavorite() {
       modalDraft.favorite = !modalDraft.favorite;
       updateModalFavBtnUI();
