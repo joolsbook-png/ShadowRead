@@ -2896,7 +2896,7 @@ const ACQ_META = {
       }).join('');
     }
 
-    async function saveBookFromModal(openTrackerAfter = false) {
+async function saveBookFromModal(openTrackerAfter = false) {
       const title = document.getElementById('modalTitle').value.trim() || 'Без названия';
       const author = document.getElementById('modalAuthor').value.trim() || 'Неизвестный автор';
       const series = document.getElementById('modalSeries').value.trim();
@@ -2907,9 +2907,10 @@ const ACQ_META = {
       if (status === 'read') readPages = totalPages;
 
       const acqType = document.getElementById('modalAcqType').value || 'pirate';
-      const isBuy = acqType === 'buy-paper' || acqType === 'buy-ebook';
-      const price = isBuy ? Math.max(0, Number(document.getElementById('modalPriceInput').value) || 0) : 0;
+      const isBuyOrSub = acqType === 'buy-paper' || acqType === 'buy-ebook' || acqType === 'sub';
+      const price = isBuyOrSub ? Math.max(0, Number(document.getElementById('modalPriceInput').value) || 0) : 0;
       const purchaseMonth = document.getElementById('modalPurchaseMonthInput').value || new Date().toISOString().slice(0, 7);
+      const annotation = document.getElementById('modalAnnotation').value.trim();
 
       const bookObj = {
         id: editingBookId || ('b_' + Date.now()),
@@ -2926,6 +2927,7 @@ const ACQ_META = {
         acqType,
         price,
         purchaseMonth,
+        annotation,
         rating: Number(document.getElementById('modalMainRating').value) || 0,
         subratings: { ...modalDraft.subratings },
         genres: [...modalDraft.genres],
@@ -2952,7 +2954,8 @@ const ACQ_META = {
           onTrackerBookChange();
         }
       }
-    }
+}
+      
 
     async function deleteCurrentBook() {
       if (!editingBookId) return;
