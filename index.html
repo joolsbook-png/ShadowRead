@@ -1685,7 +1685,20 @@ const ACQ_META = {
         books = await dbGetAll('books');
       }
 
+
+      // Автоматически переносим заметки «Аннотация» в отдельное окно аннотации для всех книг
+      for (const b of books) {
+        if (!b.annotation && Array.isArray(b.notes) && b.notes.length > 0) {
+          const idx = b.notes.findIndex(n => n.page === 'Аннотация' || (n.id && String(n.id).startsWith('n_desc_')));
+          if (idx !== -1) {
+            b.annotation = b.notes[idx].content || '';
+            b.notes.splice(idx, 1);
+            await dbPut('books', b);
+          }
+        }
+      }
       state.books = books;
+      
       state.sessions = await dbGetAll('sessions');
 
       const genresMeta = metaList.find(m => m.key === 'genres');
