@@ -2133,7 +2133,7 @@ const ACQ_META = {
               🗂️ Циклы и Серии (${Object.keys(seriesMap).length})
             </h3>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             ${Object.entries(seriesMap).map(([sName, sBooks]) => renderSeriesFanWidgetHtml(sName, sBooks)).join('')}
           </div>
         </div>
@@ -2170,15 +2170,15 @@ const ACQ_META = {
       const activeBook = books[activeIdx];
 
       return `
-        <div class="theme-card rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between space-y-2.5 relative overflow-hidden">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full btn-soft">
+        <div class="theme-card rounded-2xl p-2.5 sm:p-3 flex flex-col justify-between space-y-2 relative overflow-hidden">
+          <div class="flex items-center justify-between gap-1.5">
+            <div class="min-w-0">
+              <span class="text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full btn-soft">
                 Цикл • ${books.length} кн.
               </span>
-              <h4 class="text-sm sm:text-base font-bold mt-0.5">${escapeHtml(seriesName)}</h4>
+              <h4 class="text-xs sm:text-sm font-bold mt-0.5 truncate">${escapeHtml(seriesName)}</h4>
             </div>
-            <button onclick="openBookModal(null, '${escapeHtmlAttr(seriesName)}')" class="btn-soft px-2.5 py-1 rounded-xl text-[11px] font-bold">
+            <button onclick="openBookModal(null, '${escapeHtmlAttr(seriesName)}')" class="btn-soft px-2 py-1 rounded-xl text-[10px] font-bold flex-shrink-0">
               ＋ Том
             </button>
           </div>
@@ -2193,16 +2193,16 @@ const ACQ_META = {
                    onclick="onFanBookClick(event, '${escapeHtmlAttr(seriesName)}', ${idx}, '${b.id}')"
                    class="fan-book">
                 <img src="${b.cover}" alt="${escapeHtmlAttr(b.title)}" />
-                ${b.status === 'read' ? `<span class="absolute top-1 left-1 text-[10px] bg-emerald-600/90 text-white rounded px-1 font-bold">✓</span>` : ''}
-                ${b.favorite ? `<span class="absolute top-1 right-1 text-[10px] bg-black/70 rounded-full px-1">❤️</span>` : ''}
-                <span class="absolute bottom-1 left-1 text-[10px] font-bold bg-black/85 text-white px-1.5 py-0.5 rounded">
+                ${b.status === 'read' ? `<span class="absolute top-1 left-1 text-[9px] bg-emerald-600/90 text-white rounded px-1 font-bold">✓</span>` : ''}
+                ${b.favorite ? `<span class="absolute top-1 right-1 text-[9px] bg-black/70 rounded-full px-1">❤️</span>` : ''}
+                <span class="absolute bottom-1 left-1 text-[9px] font-bold bg-black/85 text-white px-1.5 py-0.5 rounded">
                   #${b.seriesOrder || (idx + 1)}
                 </span>
               </div>
             `).join('')}
           </div>
 
-          <div id="fan-info-${safeSeriesKey}" class="theme-card-secondary rounded-2xl p-2.5 flex items-center justify-between gap-2">
+          <div id="fan-info-${safeSeriesKey}" class="theme-card-secondary rounded-xl p-2 flex items-center justify-between gap-1.5">
             ${renderFanActiveInfoHtml(activeBook)}
           </div>
         </div>
@@ -2215,23 +2215,23 @@ const ACQ_META = {
       const statusLabels = { reading: '📖 Читаю', read: '✅ Прочитано', plan: '📌 План' };
 
       const quickActionBtn = book.status === 'reading'
-        ? `<button onclick="startReadingAndOpenTracker(event, '${book.id}')" class="btn-accent px-2.5 py-1.5 rounded-xl text-[11px] font-bold">⏱️ Трекер</button>`
+        ? `<button onclick="startReadingAndOpenTracker(event, '${book.id}')" class="btn-accent px-2 py-1 rounded-lg text-[10px] font-bold">⏱️</button>`
         : (book.status === 'read'
-            ? `<button onclick="startRereadingBook(event, '${book.id}')" class="btn-soft px-2.5 py-1.5 rounded-xl text-[11px] font-bold" title="Сбросить прогресс и начать перечитывание">🔄 Перечитать</button>`
-            : `<button onclick="startReadingAndOpenTracker(event, '${book.id}')" class="btn-soft px-2.5 py-1.5 rounded-xl text-[11px] font-bold">📖 Читаю!</button>`);
+            ? `<button onclick="startRereadingBook(event, '${book.id}')" class="btn-soft px-2 py-1 rounded-lg text-[10px] font-bold" title="Перечитать">🔄</button>`
+            : `<button onclick="startReadingAndOpenTracker(event, '${book.id}')" class="btn-soft px-2 py-1 rounded-lg text-[10px] font-bold">📖</button>`);
 
       return `
         <div class="min-w-0 flex-1 space-y-0.5">
-          <div class="flex items-center gap-1.5 text-[10px]">
+          <div class="flex items-center gap-1 text-[9px]">
             <span class="font-bold px-1.5 py-0.5 rounded btn-soft">${statusLabels[book.status] || ''}</span>
             <span class="font-bold" style="color: var(--accent)">${Number(book.rating || 0).toFixed(1)}⭐</span>
-            <span class="opacity-75">${book.readPages || 0}/${book.totalPages || 0} стр. (${pct}%)</span>
+            <span class="opacity-75">${pct}%</span>
           </div>
-          <div class="font-bold text-xs sm:text-sm truncate">${escapeHtml(book.title)}</div>
+          <div class="font-bold text-xs truncate">${escapeHtml(book.title)}</div>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
           ${quickActionBtn}
-          <button onclick="openBookModal('${book.id}')" class="btn-soft px-2.5 py-1.5 rounded-xl text-[11px] font-bold">
+          <button onclick="openBookModal('${book.id}')" class="btn-soft px-2 py-1 rounded-lg text-[10px] font-bold">
             Инфо
           </button>
         </div>
@@ -2249,8 +2249,8 @@ const ACQ_META = {
       const safeSeriesKey = encodeURIComponent(seriesName);
       const activeIdx = Math.min(books.length - 1, Math.max(0, state.fanActiveBookBySeries[seriesName] || 0));
       const mid = (books.length - 1) / 2;
-      const maxSpreadStep = books.length <= 3 ? 52 : (books.length <= 5 ? 40 : 30);
-      const angleStep = books.length <= 3 ? 10 : 8;
+      const maxSpreadStep = books.length <= 3 ? 38 : (books.length <= 5 ? 28 : 20);
+      const angleStep = books.length <= 3 ? 9 : 7;
 
       books.forEach((b, idx) => {
         const el = document.getElementById(`fan-book-${safeSeriesKey}-${idx}`);
@@ -2259,8 +2259,8 @@ const ACQ_META = {
         const angle = offset * angleStep;
         const xShift = offset * maxSpreadStep;
         const isPopped = idx === activeIdx;
-        const yShift = isPopped ? -26 : Math.abs(offset) * 6;
-        const scale = isPopped ? 1.1 : 0.94;
+        const yShift = isPopped ? -20 : Math.abs(offset) * 5;
+        const scale = isPopped ? 1.08 : 0.92;
         const zIndex = isPopped ? 25 : (10 + idx);
 
         el.style.transform = `translateX(${xShift}px) translateY(${yShift}px) rotate(${isPopped ? angle * 0.35 : angle}deg) scale(${scale})`;
@@ -2276,6 +2276,9 @@ const ACQ_META = {
       state.fanActiveBookBySeries[seriesName] = idx;
       updateSeriesFanVisual(seriesName);
     }
+      
+
+
 
     function handleFanDirectTouchMove(e, seriesName) {
       if (!e.touches || !e.touches[0]) return;
