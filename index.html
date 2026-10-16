@@ -680,8 +680,17 @@
         <div class="flex justify-center bg-black/30 p-2 sm:p-5 rounded-2xl overflow-x-auto">
           <canvas id="wrapupExportCanvas" width="1080" height="1350" class="max-w-full h-auto rounded-2xl shadow-2xl border" style="max-height: 750px; border-color: var(--border-color)"></canvas>
         </div>
+
+        <!-- Кликабельные обложки книг этого месяца для быстрого перехода в карточку -->
+        <div class="pt-3 border-t space-y-2" style="border-color: var(--border-color)">
+          <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent)">
+            👆 Нажми на любую книгу месяца, чтобы открыть её карточку:
+          </h3>
+          <div id="wrapupClickableBooks" class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2"></div>
+        </div>
       </div>
     </div>
+    
 
     <!-- ==========================================
          VIEW 4: СТАТИСТИКА + ТРАТЫ И ПИРАТСТВО
