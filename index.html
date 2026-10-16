@@ -817,6 +817,17 @@
               <input type="file" accept="image/*" onchange="handleCoverUpload(event)" class="hidden" />
             </label>
             <input type="text" id="modalCoverUrlInput" oninput="handleCoverUrlInput(this.value)" placeholder="Или вставь URL картинки..." class="theme-input w-full text-xs rounded-xl px-3 py-1.5" />
+
+            <!-- УМЫВАЮЩИЙСЯ КОТ В УГЛУ КАРТОЧКИ (ЗЛИТСЯ, ЕСЛИ ПОМЕШАТЬ!) -->
+            <div onclick="pokeGroomingCat()" class="theme-card-secondary w-full rounded-2xl p-3 flex flex-col items-center text-center cursor-pointer select-none border transition hover:border-purple-400/60 mt-1" style="border-color: var(--border-color)" title="Ткни пальцем, чтобы побеспокоить Кота">
+              <div id="modalGroomingCatSvg" class="w-28 h-28 flex items-center justify-center"></div>
+              <span id="modalGroomingBadge" class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full btn-soft mt-1">
+                🐾 Намывает ушки...
+              </span>
+              <p id="modalGroomingSpeech" class="text-[11px] italic mt-1 leading-tight" style="color: var(--text-muted)">
+                «Мрр... Только попробуй ткнуть в меня пальцем, когда я навожу марафет!»
+              </p>
+            </div>
           </div>
 
           <!-- Right: Core Fields -->
@@ -903,15 +914,20 @@
               </div>
             </div>
 
-            <!-- ОКНО АННОТАЦИИ (МИНИ-ТРЕЙЛЕР К СЮЖЕТУ) -->
-            <div class="theme-card-secondary rounded-2xl p-3 space-y-1.5 border" style="border-color: var(--border-color)">
-              <div class="flex items-center justify-between">
-                <label class="font-bold text-xs sm:text-sm flex items-center gap-1.5" style="color: var(--accent)">
-                  📜 Аннотация (Мини-трейлер к сюжету)
-                </label>
-                <span class="text-[10px] opacity-75" style="color: var(--text-muted)">Завязка истории без спойлеров</span>
+            <!-- ОКНО АННОТАЦИИ ПОД РАСКРЫВАШКОЙ (ВЫСОКОЕ И УДОБНОЕ) -->
+            <div class="theme-card-secondary rounded-2xl p-3 space-y-2 border" style="border-color: var(--border-color)">
+              <div onclick="toggleAnnotationWall()" class="flex items-center justify-between cursor-pointer select-none">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-xs sm:text-sm" style="color: var(--accent)">📜 Аннотация (Мини-трейлер к сюжету)</span>
+                  <span id="annotationPreviewBadge" class="text-[10px] px-2 py-0.5 rounded-full btn-soft">Скрыта</span>
+                </div>
+                <button type="button" class="btn-soft px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1">
+                  Читать / Править <span id="annotationArrow">▼</span>
+                </button>
               </div>
-              <textarea id="modalAnnotation" rows="3" placeholder="О чём эта книга? Вставь сюда официальную аннотацию или свой краткий тизер..." class="theme-input w-full rounded-xl p-2.5 text-xs sm:text-sm leading-relaxed"></textarea>
+              <div id="annotationWall" class="hidden pt-2 border-t" style="border-color: var(--border-color)">
+                <textarea id="modalAnnotation" rows="8" oninput="updateAnnotationBadge()" placeholder="О чём эта книга? Вставь сюда официальную аннотацию или свой краткий тизер..." class="theme-input w-full rounded-xl p-3 text-xs sm:text-sm leading-relaxed resize-y"></textarea>
+              </div>
             </div>
             
 
