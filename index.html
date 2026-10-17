@@ -5304,77 +5304,244 @@ async function saveBookFromModal(openTrackerAfter = false) {
       if (box) box.classList.add('hidden');
     }
 
+    let lastFoundCandidates = [];
+
+    async function fetchWithTimeout(url, ms = 4500) {
+      const ctrl = new AbortController();
+      const id = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(id);
+        return res;
+      } catch (e) {
+        clearTimeout(id);
+        throw e;
+      }
+    }
+
+    // 1. Поиск в русском каталоге ЛитРес (через CORS-мост)
+    async function searchLitresCatalog(query) {
+      try {
+        const target = `https://api.litres.ru/foundation/api/search?q=${encodeURIComponent(query)}&art_types=text_book&limit=5`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
+        const res = await fetchWithTimeout(proxyUrl, 5000);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const items = json?.payload?.data || [];
+        return items.map(it => {
+          const inst = it.instance || it;
+          if (!inst || !inst.title) return null;
+          const authors = (inst.persons || [])
+            .filter(p => !p.role || p.role === 'author')
+            .map(p => p.full_name || p.name)
+            .filter(Boolean)
+            .join(', ');
+          const cov = inst.cover_url
+            ? (inst.cover_url.startsWith('http') ? inst.cover_url : `https://cdn.litres.ru${inst.cover_url}`)
+            : '';
+          return {
+            source: 'ЛитРес 🇷🇺',
+            title: String(inst.title).trim(),
+            author: authors || 'Неизвестный автор',
+            pages: Number(inst.pages_count || 0) || 0,
+            annotation: String(inst.annotation || '').replace(/<[^>]+>/g, '').trim(),
+            cover: cov,
+            series: inst.series_title || ''
+          };
+        }).filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // 2. Поиск в Apple Books (отлично ищет на русском + даёт шикарные обложки и аннотации!)
+    async function searchAppleBooksCatalog(query) {
+      try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=ebook&country=RU&limit=5`;
+        const res = await fetchWithTimeout(url, 4200);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.results || []).map(r => ({
+          source: 'Apple Books 🍎',
+          title: String(r.trackName || '').trim(),
+          author: String(r.artistName || 'Неизвестный автор').trim(),
+          pages: 0,
+          annotation: String(r.description || '').replace(/<[^>]+>/g, '').trim(),
+          cover: String(r.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+          series: ''
+        })).filter(x => x.title);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // 3. Поиск в Google Books
+    async function searchGoogleBooksCatalog(query, isIsbn = false) {
+      try {
+        const qParam = isIsbn ? `isbn:${query}` : query;
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(qParam)}&langRestrict=ru&maxResults=5`;
+        let res = await fetchWithTimeout(url, 4200);
+        let data = res.ok ? await res.json() : null;
+        if (!data?.items?.length) {
+          const res2 = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`, 4200);
+          if (res2.ok) data = await res2.json();
+        }
+        return (data?.items || []).map(it => {
+          const v = it.volumeInfo || {};
+          const rawImg = v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || '';
+          return {
+            source: 'Google Books 🌍',
+            title: String(v.title || '').trim(),
+            author: (v.authors || []).join(', ') || 'Неизвестный автор',
+            pages: Number(v.pageCount || 0) || 0,
+            annotation: String(v.description || '').trim(),
+            cover: rawImg ? rawImg.replace(/^http:\/\//i, 'https://') : '',
+            series: ''
+          };
+        }).filter(x => x.title);
+      } catch (e) {
+        return [];
+      }
+    }
+        // 4. Если отсканирован бумажный ISBN РФ (978-5-...), вытаскиваем название книги из Читай-Города/поиска
+    async function resolveRussianIsbnToTitle(isbnDigits) {
+      try {
+        const htmlUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(isbnDigits + ' книга')}`;
+        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(htmlUrl)}`;
+        const res = await fetchWithTimeout(proxy, 4500);
+        if (!res.ok) return '';
+        const text = await res.text();
+        const doc = new DOMParser().parseFromString(text, 'text/html');
+        const firstLink = doc.querySelector('.result__a');
+        if (!firstLink) return '';
+        let rawTitle = firstLink.textContent || '';
+        rawTitle = rawTitle
+          .replace(/купить|книга|читай-город|лабиринт|ozon|озон|wildberries|в интернет-магазине|по низкой цене|isbn|[0-9-]{10,17}/gi, '')
+          .replace(/[|—«»"():]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return rawTitle.slice(0, 75);
+      } catch (e) {
+        return '';
+      }
+    }
+
     async function searchBookByIsbn() {
       const raw = (document.getElementById('isbnInput').value || '').trim();
       const statusEl = document.getElementById('isbnSearchStatus');
+      const listEl = document.getElementById('isbnResultsList');
       if (!raw) {
-        statusEl.textContent = '⚠️ Сначала введи ISBN или название книги!';
+        statusEl.textContent = '⚠️ Введи ISBN, название или автора!';
         return;
       }
 
       const cleanDigits = raw.replace(/[^0-9Xx]/g, '');
       const isIsbn = cleanDigits.length === 10 || cleanDigits.length === 13;
-      statusEl.textContent = '⏳ Ищу книгу в мировых архивах...';
+      statusEl.textContent = '⏳ Опрашиваю ЛитРес, Apple Books и Google...';
+      listEl.classList.add('hidden');
+      listEl.innerHTML = '';
 
       try {
-        let info = null;
+        let queryToUse = isIsbn ? cleanDigits : raw;
 
-        // 1. Пробуем точный поиск по ISBN в Google Books
-        if (isIsbn) {
-          const r1 = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanDigits}&maxResults=1`);
-          const d1 = await r1.json();
-          if (d1.items && d1.items[0]?.volumeInfo) info = d1.items[0].volumeInfo;
-        }
+        // Запускаем параллельный поиск сразу во всех базах!
+        let [litresRes, appleRes, googleRes] = await Promise.all([
+          searchLitresCatalog(queryToUse),
+          searchAppleBooksCatalog(queryToUse),
+          searchGoogleBooksCatalog(queryToUse, isIsbn)
+        ]);
 
-        // 2. Если по строгому префиксу не нашлось (частая история для РФ-изданий) — ищем свободным запросом
-        if (!info) {
-          const qStr = encodeURIComponent(isIsbn ? cleanDigits : raw);
-          const r2 = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${qStr}&maxResults=1`);
-          const d2 = await r2.json();
-          if (d2.items && d2.items[0]?.volumeInfo) info = d2.items[0].volumeInfo;
-        }
+        let combined = [...litresRes, ...appleRes, ...googleRes];
 
-        // 3. Запасной запрос в OpenLibrary
-        if (!info && isIsbn) {
-          const r3 = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanDigits}&format=json&jscmd=data`);
-          const d3 = await r3.json();
-          const olBook = d3[`ISBN:${cleanDigits}`];
-          if (olBook) {
-            info = {
-              title: olBook.title,
-              authors: (olBook.authors || []).map(a => a.name),
-              pageCount: olBook.number_of_pages,
-              description: typeof olBook.notes === 'string' ? olBook.notes : '',
-              imageLinks: olBook.cover ? { thumbnail: olBook.cover.large || olBook.cover.medium } : null
-            };
+        // Если это бумажный русский ISBN и прямым числом его нет в электронных базах —
+        // расшифровываем название по ISBN и тут же ищем книгу по названию!
+        if (combined.length === 0 && isIsbn) {
+          statusEl.textContent = '🕵️‍♀️ Расшифровываю бумажный штрихкод РФ...';
+          const guessedTitle = await resolveRussianIsbnToTitle(cleanDigits);
+          if (guessedTitle) {
+            const [l2, a2, g2] = await Promise.all([
+              searchLitresCatalog(guessedTitle),
+              searchAppleBooksCatalog(guessedTitle),
+              searchGoogleBooksCatalog(guessedTitle, false)
+            ]);
+            combined = [...l2, ...a2, ...g2];
           }
         }
 
-        if (!info) {
-          statusEl.textContent = '😿 По этому коду ничего не нашлось. Попробуй вписать название и автора!';
+        if (combined.length === 0) {
+          statusEl.textContent = '😿 По коду не нашлось — впиши название словами и жми «Найти»!';
           return;
         }
 
-        if (info.title) document.getElementById('modalTitle').value = info.title;
-        if (info.authors && info.authors.length) document.getElementById('modalAuthor').value = info.authors.join(', ');
-        if (info.pageCount && Number(info.pageCount) > 0) {
-          document.getElementById('modalTotalPages').value = Number(info.pageCount);
-          updateModalProgressPreview();
+        // Убираем полные дубликаты и показываем до 6 лучших карточек
+        const unique = [];
+        const seen = new Set();
+        for (const item of combined) {
+          const key = (item.title + '|' + item.author).toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(item);
+          }
         }
-        if (info.description) {
-          document.getElementById('modalAnnotation').value = info.description;
-          updateAnnotationBadge();
-        }
-        if (info.imageLinks && (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail)) {
-          const rawUrl = (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail).replace(/^http:\/\//i, 'https://');
-          modalDraft.cover = rawUrl;
-          document.getElementById('modalCoverPreview').src = rawUrl;
-        }
+        lastFoundCandidates = unique.slice(0, 6);
+
+        // Сразу подставляем первый самый точный результат в поля карточки
+        applyFoundBookCandidate(0, false);
+
+        // И открываем красивую витрину вариантов, если вдруг нужно другое издание/обложка
+        listEl.innerHTML = lastFoundCandidates.map((c, idx) => `
+          <div onclick="applyFoundBookCandidate(${idx}, true)"
+               class="theme-card rounded-xl p-2 flex items-center justify-between gap-2.5 cursor-pointer hover:border-purple-400 transition text-xs">
+            <div class="flex items-center gap-2.5 min-w-0">
+              ${c.cover
+                ? `<img src="${c.cover}" class="w-9 h-13 object-cover rounded-lg flex-shrink-0 bg-black/40" />`
+                : `<div class="w-9 h-13 rounded-lg bg-purple-950/60 flex items-center justify-center text-sm flex-shrink-0">📕</div>`}
+              <div class="min-w-0">
+                <div class="font-bold truncate">${escapeHtml(c.title)}</div>
+                <div class="text-[11px] truncate" style="color: var(--text-muted)">${escapeHtml(c.author)}</div>
+                <div class="flex items-center gap-1.5 text-[10px] opacity-80">
+                  <span class="px-1.5 py-0.2 rounded btn-soft font-semibold">${c.source}</span>
+                  ${c.pages ? `<span>• ${c.pages} стр.</span>` : ''}
+                  ${c.annotation ? `<span>• 📜 Аннотация</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn-accent px-2.5 py-1 rounded-lg text-[10px] font-bold flex-shrink-0">
+              Выбрать
+            </button>
+          </div>
+        `).join('');
+        listEl.classList.remove('hidden');
 
         if (typeof playSound === 'function') playSound('bloop');
-        statusEl.textContent = `✅ Найдено: «${info.title || 'Книга'}»!`;
+        statusEl.textContent = `✅ Найдено вариантов: ${lastFoundCandidates.length} (выбери лучший ниже!)`;
       } catch (err) {
-        statusEl.textContent = '⚠️ Ошибка сети при поиске книги.';
+        statusEl.textContent = '⚠️ Ошибка сети при поиске.';
+      }
+    }
+
+    function applyFoundBookCandidate(idx, closeListAfter = true) {
+      const c = lastFoundCandidates[idx];
+      if (!c) return;
+      if (c.title) document.getElementById('modalTitle').value = c.title;
+      if (c.author) document.getElementById('modalAuthor').value = c.author;
+      if (c.series) document.getElementById('modalSeries').value = c.series;
+      if (c.pages && c.pages > 0) {
+        document.getElementById('modalTotalPages').value = c.pages;
+        updateModalProgressPreview();
+      }
+      if (c.annotation) {
+        document.getElementById('modalAnnotation').value = c.annotation;
+        updateAnnotationBadge();
+      }
+      if (c.cover) {
+        modalDraft.cover = c.cover;
+        document.getElementById('modalCoverPreview').src = c.cover;
+      }
+      if (closeListAfter) {
+        if (typeof playSound === 'function') playSound('bloop');
+        document.getElementById('isbnResultsList').classList.add('hidden');
+        document.getElementById('isbnSearchStatus').textContent = `✨ Заполнено: «${c.title}» (${c.source})`;
       }
     }
     
