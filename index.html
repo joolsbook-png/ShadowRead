@@ -2067,9 +2067,32 @@ const ACQ_META = {
     /* =========================================================================
        5. ТЕМЫ И ЯРКИЕ ВКЛАДКИ НАВИГАЦИИ
        ========================================================================= */
+    state.animEnabled = localStorage.getItem('sr_theme_anim') !== 'off';
+
+    function updateAnimToggleBtnUI() {
+      const btn = document.getElementById('animToggleBtn');
+      if (!btn) return;
+      if (state.animEnabled) {
+        btn.innerHTML = '✨ <span class="hidden md:inline">Аним: Вкл</span>';
+        btn.style.opacity = '1';
+      } else {
+        btn.innerHTML = '💤 <span class="hidden md:inline">Аним: Выкл</span>';
+        btn.style.opacity = '0.6';
+      }
+    }
+
+    function toggleThemeAnimations() {
+      state.animEnabled = !state.animEnabled;
+      localStorage.setItem('sr_theme_anim', state.animEnabled ? 'on' : 'off');
+      updateAnimToggleBtnUI();
+      renderThemeAmbientDecor(state.theme);
+    }
+
     function applyThemeAttr(themeName) {
       if (themeName === 'lilac-dusk') document.documentElement.removeAttribute('data-theme');
       else document.documentElement.setAttribute('data-theme', themeName);
+      updateAnimToggleBtnUI();
+      renderThemeAmbientDecor(themeName);
     }
 
     async function changeTheme(themeName) {
@@ -2078,6 +2101,85 @@ const ACQ_META = {
       await dbPut('meta', { key: 'theme', value: themeName });
       if (!document.getElementById('view-wrapup').classList.contains('hidden')) renderWrapupCanvas();
     }
+        function renderThemeAmbientDecor(themeName) {
+      let layer = document.getElementById('themeAmbientLayer');
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.id = 'themeAmbientLayer';
+        layer.className = 'fixed inset-0 pointer-events-none z-40 overflow-hidden';
+        document.body.appendChild(layer);
+      }
+      if (!state.animEnabled) {
+        layer.innerHTML = '';
+        return;
+      }
+
+      if (themeName === 'halloween') {
+        const leaves = Array.from({ length: 14 }, (_, i) => {
+          const icons = ['🍂', '🍁', '🕸️', '🍂'];
+          const left = (i * 7 + 3) % 96;
+          const dur = 8 + (i % 6) * 2;
+          const delay = (i * 1.1).toFixed(1);
+          return `<div style="position:absolute; left:${left}%; top:-5%; font-size:${15 + (i % 8)}px; animation: fallDownSpin ${dur}s linear ${delay}s infinite;">${icons[i % icons.length]}</div>`;
+        }).join('');
+
+        layer.innerHTML = `
+          ${leaves}
+          <div style="position:absolute; top:0; left:0; animation: batFlyAcross 16s ease-in-out 1s infinite; font-size:24px;">🦇</div>
+          <div style="position:absolute; top:12%; left:0; animation: batFlyAcross 23s ease-in-out 9s infinite; font-size:19px;">🦇</div>
+          <div class="fixed bottom-2 left-3 right-3 flex items-end justify-between pointer-events-none select-none opacity-95">
+            <div class="flex items-end gap-1.5 text-xl sm:text-2xl">
+              <span style="display:inline-block; animation: pumpkinWiggle 2.4s ease-in-out infinite;">🎃</span>
+              <span style="display:inline-block; animation: candleFlicker 1.8s ease-in-out infinite;">🕯️</span>
+              <span style="display:inline-block; animation: skeletonWalk 4.5s ease-in-out infinite;" title="Бу!">💀🦴</span>
+            </div>
+            <div class="flex items-end gap-1.5 text-xl sm:text-2xl">
+              <span style="display:inline-block; animation: candleFlicker 1.5s ease-in-out 0.4s infinite;">🕯️</span>
+              <span style="display:inline-block; animation: pumpkinWiggle 2.8s ease-in-out 0.6s infinite;">🎃</span>
+            </div>
+          </div>
+        `;
+      } else if (themeName === 'winter-tale') {
+        const snow = Array.from({ length: 20 }, (_, i) => {
+          const icons = ['❄️', '❅', '❆', '•'];
+          const left = (i * 5 + 2) % 98;
+          const dur = 7 + (i % 5) * 2.2;
+          const delay = (i * 0.7).toFixed(1);
+          return `<div style="position:absolute; left:${left}%; top:-5%; color:#fff; font-size:${12 + (i % 10)}px; animation: fallDownSpin ${dur}s linear ${delay}s infinite;">${icons[i % icons.length]}</div>`;
+        }).join('');
+
+        const colors = ['#f43f5e', '#fbbf24', '#34d399', '#38bdf8', '#c084fc'];
+        const garland = Array.from({ length: 18 }, (_, i) => {
+          const col = colors[i % colors.length];
+          const del = ((i % 4) * 0.35).toFixed(2);
+          return `<span style="color:${col}; animation: bulbTwinkle 1.6s ease-in-out ${del}s infinite; font-size:14px;">●</span>`;
+        }).join('');
+
+        layer.innerHTML = `
+          ${snow}
+          <div class="fixed top-0 left-0 right-0 flex justify-around py-0.5 pointer-events-none">${garland}</div>
+          <div class="fixed bottom-2 left-3 right-3 flex items-end justify-between pointer-events-none select-none text-2xl sm:text-3xl">
+            <div class="flex items-end gap-1">
+              <span style="display:inline-block; animation: candleFlicker 2s ease-in-out infinite;">🎄</span>
+              <span style="display:inline-block; animation: pumpkinWiggle 3s ease-in-out infinite;">☃️</span>
+            </div>
+            <div class="flex items-end gap-1">
+              <span style="display:inline-block; animation: pumpkinWiggle 3.2s ease-in-out 0.5s infinite;">🦌</span>
+              <span style="display:inline-block; animation: candleFlicker 2.2s ease-in-out 0.7s infinite;">🎄</span>
+            </div>
+          </div>
+        `;
+      } else if (themeName === 'sunset-clouds') {
+        layer.innerHTML = `
+          <div class="fixed top-14 right-6 text-3xl opacity-65 pointer-events-none" style="animation: shadowFloat 5s ease-in-out infinite;">🌙</div>
+          <div class="fixed bottom-4 left-6 text-2xl opacity-45 pointer-events-none" style="animation: shadowFloat 6s ease-in-out 1s infinite;">☁️✨</div>
+          <div class="fixed bottom-6 right-8 text-2xl opacity-45 pointer-events-none" style="animation: shadowFloat 7s ease-in-out 2s infinite;">☁️</div>
+        `;
+      } else {
+        layer.innerHTML = '';
+      }
+        }
+    
 
      function switchMainView(viewName) {
       ['library', 'calendar', 'wrapup', 'stats', 'achievements'].forEach(v => {
