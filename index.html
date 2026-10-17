@@ -2153,22 +2153,13 @@ const ACQ_META = {
       const bgMeta = metaList.find(m => m.key === 'wrapupCustomBg');
       const densityMeta = metaList.find(m => m.key === 'gridDensity');
 
-      if (genresMeta) {
+            if (genresMeta && Array.isArray(genresMeta.value)) {
         state.genres = genresMeta.value;
-        DEFAULT_GENRES.forEach(dg => {
-          if (!state.genres.some(g => g.toLowerCase().replace(/ё/g, 'е') === dg.toLowerCase().replace(/ё/g, 'е'))) {
-            state.genres.push(dg);
-          }
-        });
       }
-      if (tagsMeta) {
+      if (tagsMeta && Array.isArray(tagsMeta.value)) {
         state.tags = tagsMeta.value;
-        DEFAULT_TAGS.forEach(dt => {
-          if (!state.tags.some(t => t.name.toLowerCase().replace(/ё/g, 'е') === dt.name.toLowerCase().replace(/ё/g, 'е'))) {
-            state.tags.push(dt);
-          }
-        });
       }
+      
       if (densityMeta) state.gridDensity = densityMeta.value;
       updateGridDensityBtnLabel();
 
