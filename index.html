@@ -5075,18 +5075,21 @@ async function saveBookFromModal(openTrackerAfter = false) {
       
 
     async function resetToDemoData() {
+      if (!confirm('🐾 Заменить текущие книги на демонстрационный набор?')) return;
       await seedDemoData();
       await loadAppState();
       document.getElementById('backupModal').classList.add('hidden');
     }
 
     async function clearAllDatabase() {
+      if (!confirm('⚠️ ВНИМАНИЕ! Ты точно хочешь полностью очистить ВСЕ книги и сессии? (Не забудь сначала сделать бэкап!)')) return;
       await dbClearStore('books');
       await dbClearStore('sessions');
       await dbPut('meta', { key: 'initialized', value: true });
       await loadAppState();
       document.getElementById('backupModal').classList.add('hidden');
     }
+    
 
     function escapeHtml(str) {
       return String(str || '').replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
