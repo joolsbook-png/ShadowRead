@@ -497,12 +497,22 @@
         </div>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
-          <select id="themeSelector" onchange="changeTheme(this.value)" class="theme-input text-xs rounded-xl px-2.5 py-2 font-semibold cursor-pointer">
-            <option value="lilac-dusk">💜 Лиловый</option>
-            <option value="lilac-light">🌸 Лаванда</option>
+          <select id="themeSelector" onchange="changeTheme(this.value)" class="theme-input text-xs rounded-xl px-2.5 py-2 font-semibold cursor-pointer max-w-[145px] sm:max-w-none">
+            <option value="lilac-dusk">💜 Лиловый сумрак</option>
+            <option value="sunset-clouds">🌅 Закат в облаках</option>
+            <option value="halloween">🎃 Хэллоуин (Аним.)</option>
+            <option value="winter-tale">🎄 Зимняя сказка (Аним.)</option>
+            <option value="lilac-light">🌸 Нежная лаванда</option>
             <option value="obsidian">🖤 Обсидиан</option>
-            <option value="rose-quartz">🌷 Кварц</option>
+            <option value="rose-quartz">🌷 Розовый кварц</option>
+            <option value="emerald-forest">🐍 Изумрудный лес</option>
+            <option value="dark-academia">☕ Тёмная Академия</option>
           </select>
+
+          <button onclick="toggleThemeAnimations()" id="animToggleBtn" title="Включить или выключить анимацию темы" class="btn-soft px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+            ✨ <span class="hidden md:inline">Аним: Вкл</span>
+          </button>
+          
 
           <button onclick="openBackupModal()" title="Бэкап, Теги и Настройки" class="btn-soft px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
             ⚙️ <span class="hidden md:inline">База / Бэкап</span>
