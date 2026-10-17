@@ -5250,14 +5250,81 @@ async function saveBookFromModal(openTrackerAfter = false) {
     
 
 
-    // Обновляем бейдж титула Кота также при каждом рендере котика
     const _origRenderShadowCat = renderShadowCatWidget;
     renderShadowCatWidget = function() {
       _origRenderShadowCat();
       updateHeaderCatEvolutionBadge();
     };
 
+    function triggerBookCelebration(book, prevAchMap) {
+      if (!book) return;
+      document.getElementById('celBookTitle').textContent = book.title || 'Книга';
+      document.getElementById('celBookAuthor').textContent = book.author || '';
+      document.getElementById('celBookCover').src = book.cover || '';
+      document.getElementById('celBookRatingBadge').textContent = `${Number(book.rating || 10).toFixed(1)}⭐`;
+      document.getElementById('celCatQuote').textContent = `«Мрр-хаос! Ещё +${book.totalPages || 400} страниц в мою бездонную утробу! Ты великолепна, Хозяйка!»`;
+
+      const newAchs = getAchievementsDefinitions().map(evaluateSingleAchievement);
+      const boosted = newAchs.filter(a => prevAchMap[a.id] !== undefined && a.val > prevAchMap[a.id].val);
+      const achBox = document.getElementById('celAchievementsBox');
+
+      if (boosted.length > 0) {
+        achBox.innerHTML = `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-1" style="color: var(--accent)">🏆 Прокачались достижения:</div>` +
+          boosted.map(a => {
+            const leveledUp = a.currentLevel > prevAchMap[a.id].level;
+            return `<div class="flex items-center justify-between text-xs py-1 border-b border-white/10 last:border-0">
+              <span>${a.icon} <strong>${escapeHtml(a.name)}</strong> ${leveledUp ? '<span class="px-1.5 py-0.5 rounded bg-amber-400 text-black font-extrabold text-[10px]">НОВЫЙ ТИТУЛ!</span>' : ''}</span>
+              <span class="font-extrabold" style="color: var(--accent)">${prevAchMap[a.id].val} ➔ ${a.val} ${a.unit}</span>
+            </div>`;
+          }).join('');
+      } else {
+        achBox.innerHTML = `<div class="text-xs text-center py-1">✨ Книга бережно занесена в Золотой Архив Тьмы!</div>`;
+      }
+
+      const confBox = document.getElementById('celebrationConfettiBox');
+      const icons = ['✨', '🐾', '💜', '⭐', '🦋', '🔥', '👑'];
+      confBox.innerHTML = Array.from({ length: 24 }, (_, i) => {
+        const left = Math.round(Math.random() * 96);
+        const dur = (1.8 + Math.random() * 1.8).toFixed(2);
+        return `<div style="position:absolute; left:${left}%; top:-10%; font-size:${16 + (i % 12)}px; animation: shadowFloat ${dur}s ease-in-out infinite; top:${Math.round(Math.random() * 88)}%; opacity:0.85">${icons[i % icons.length]}</div>`;
+      }).join('');
+
+      document.getElementById('celebrationModal').classList.remove('hidden');
+    }
+
+    function snapshotAchMap() {
+      const map = {};
+      getAchievementsDefinitions().map(evaluateSingleAchievement).forEach(a => {
+        map[a.id] = { val: a.val, level: a.currentLevel };
+      });
+      return map;
+    }
+
+    const _origSaveBook = saveBookFromModal;
+    saveBookFromModal = async function(openTrackerAfter = false) {
+      const wasRead = editingBookId && state.books.find(b => b.id === editingBookId)?.status === 'read';
+      const snap = snapshotAchMap();
+      await _origSaveBook(openTrackerAfter);
+      const savedBook = editingBookId ? state.books.find(b => b.id === editingBookId) : state.books[state.books.length - 1];
+      if (!openTrackerAfter && savedBook && savedBook.status === 'read' && !wasRead) {
+        triggerBookCelebration(savedBook, snap);
+      }
+    };
+
+    const _origSaveSession = saveReadingSession;
+    saveReadingSession = async function() {
+      const bookId = document.getElementById('sessionBookSelect').value;
+      const wasRead = state.books.find(b => b.id === bookId)?.status === 'read';
+      const snap = snapshotAchMap();
+      await _origSaveSession();
+      const updated = state.books.find(b => b.id === bookId);
+      if (updated && updated.status === 'read' && !wasRead) {
+        triggerBookCelebration(updated, snap);
+      }
+    };
+
     window.addEventListener('DOMContentLoaded', loadAppState);
+    
       
   </script>
 </body>
