@@ -1476,7 +1476,17 @@ const ACQ_META = {
       }
     }
 
+    async function ensurePersistentStorage() {
+      if (navigator.storage && navigator.storage.persist) {
+        try {
+          const isPersisted = await navigator.storage.persisted();
+          if (!isPersisted) await navigator.storage.persist();
+        } catch (e) {}
+      }
+    }
+
     function openDB() {
+      ensurePersistentStorage();
       return new Promise((resolve, reject) => {
         if (dbInstance) return resolve(dbInstance);
         const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -1490,6 +1500,7 @@ const ACQ_META = {
         req.onerror = (e) => reject(e.target.error);
       });
     }
+      
 
     async function dbGetAll(storeName) {
       const db = await openDB();
