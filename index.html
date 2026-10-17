@@ -1583,10 +1583,28 @@
         <textarea id="backupRawTextarea" rows="3" placeholder="Сюда можно вставить скопированный текст бэкапа для восстановления..." class="theme-input w-full rounded-xl p-2.5 text-[11px] font-mono resize-none"></textarea>
       </div>
 
-      <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2 text-xs">
-        <h4 class="font-bold text-sm">🏷️ Твои цветные теги</h4>
-        <div id="manageTagsContainer" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto"></div>
+      <!-- Чистка и удаление ЖАНРОВ -->
+      <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2.5 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h4 class="font-bold text-sm">🎭 Твои жанры (нажми ✕ для удаления)</h4>
+          <button type="button" onclick="cleanUnusedGenres()" class="btn-soft px-2.5 py-1 rounded-lg text-[11px] font-bold">
+            🧹 Удалить пустые (0)
+          </button>
+        </div>
+        <div id="manageGenresContainer" class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1"></div>
       </div>
+
+      <!-- Чистка и удаление ТЕГОВ -->
+      <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2.5 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h4 class="font-bold text-sm">🏷️ Твои цветные теги (нажми ✕ для удаления)</h4>
+          <button type="button" onclick="cleanUnusedTags()" class="btn-soft px-2.5 py-1 rounded-lg text-[11px] font-bold">
+            🧹 Удалить пустые (0)
+          </button>
+        </div>
+        <div id="manageTagsContainer" class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1"></div>
+      </div>
+      
 
       <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2 text-xs">
         <h4 class="font-bold text-sm">🧹 Управление демо-данными</h4>
