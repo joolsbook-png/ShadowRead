@@ -1347,7 +1347,39 @@
       </div>
     </div>
   </div>
-    <script>
+
+  <!-- MODAL 7: ПРАЗДНОВАНИЕ ЗАВЕРШЕНИЯ КНИГИ + ПРОКАЧКА АЧИВОК -->
+  <div id="celebrationModal" class="fixed inset-0 z-[80] hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div id="celebrationConfettiBox" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
+    <div class="theme-card max-w-lg w-full rounded-3xl p-5 sm:p-6 text-center space-y-4 border-2 shadow-2xl relative z-10 my-auto" style="border-color: #fbbf24">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-400/40">
+        🎉 КНИГА ПОКОРЕНА! 🎉
+      </div>
+      <h2 id="celBookTitle" class="text-lg sm:text-2xl font-extrabold leading-tight">Название книги</h2>
+      <p id="celBookAuthor" class="text-xs font-bold" style="color: var(--accent)">Автор</p>
+
+      <!-- Обложка в объятиях лапок Теневого Кота -->
+      <div class="relative w-36 h-52 sm:w-40 sm:h-60 mx-auto my-2">
+        <img id="celBookCover" src="" class="w-full h-full object-cover rounded-2xl shadow-2xl border-2 border-amber-400" style="transform: rotate(-2deg)" />
+        <div class="absolute -bottom-4 -left-4 w-12 h-12 rounded-full bg-black/90 border-2 border-purple-400 flex items-center justify-center text-2xl shadow-lg">🐾</div>
+        <div class="absolute -bottom-4 -right-4 w-12 h-12 rounded-full bg-black/90 border-2 border-purple-400 flex items-center justify-center text-2xl shadow-lg">😻</div>
+        <div id="celBookRatingBadge" class="absolute -top-3 -right-3 px-2.5 py-1 rounded-xl bg-amber-400 text-black font-extrabold text-xs shadow-lg">10⭐</div>
+      </div>
+
+      <p id="celCatQuote" class="text-xs sm:text-sm italic px-2" style="color: var(--text-muted)"></p>
+
+      <!-- Блок прибавки к достижениям -->
+      <div id="celAchievementsBox" class="theme-card-secondary rounded-2xl p-3 text-left space-y-2 max-h-44 overflow-y-auto"></div>
+
+      <div class="flex gap-2 pt-1">
+        <button onclick="document.getElementById('celebrationModal').classList.add('hidden')" class="btn-accent flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold shadow-lg">
+          🐾 Мур-р, продолжаем!
+        </button>
+      </div>
+    </div>
+  </div>
+  <script>
+    
     /* =========================================================================
        1. КОНСТАНТЫ: 8 ШКАЛ, КОШАЧЬИ ЭМОЦИИ, ТЕГИ И СПОСОБЫ ДОБЫЧИ КНИГ
        ========================================================================= */
