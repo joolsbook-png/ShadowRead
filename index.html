@@ -5676,11 +5676,12 @@ async function saveBookFromModal(openTrackerAfter = false) {
 
     function triggerBookCelebration(book, prevAchMap) {
       if (!book) return;
+      playSound('celebrate');
       document.getElementById('celBookTitle').textContent = book.title || 'Книга';
       document.getElementById('celBookAuthor').textContent = book.author || '';
       document.getElementById('celBookCover').src = book.cover || '';
       document.getElementById('celBookRatingBadge').textContent = `${Number(book.rating || 10).toFixed(1)}⭐`;
-      document.getElementById('celCatQuote').textContent = `«Мрр-хаос! Ещё +${book.totalPages || 400} страниц в мою бездонную утробу! Ты великолепна, Хозяйка!»`;
+      document.getElementById('celCatQuote').textContent = `«Мрр-хаос! Ещё +${book.totalPages || 400} страниц в мою бездонную утробу! Дай обниму лапками!»`;
 
       const newAchs = getAchievementsDefinitions().map(evaluateSingleAchievement);
       const boosted = newAchs.filter(a => prevAchMap[a.id] !== undefined && a.val > prevAchMap[a.id].val);
@@ -5700,13 +5701,30 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
 
       const confBox = document.getElementById('celebrationConfettiBox');
-      const icons = ['✨', '🐾', '💜', '⭐', '🦋', '🔥', '👑'];
-      confBox.innerHTML = Array.from({ length: 24 }, (_, i) => {
-        const left = Math.round(Math.random() * 96);
-        const dur = (1.8 + Math.random() * 1.8).toFixed(2);
-        return `<div style="position:absolute; left:${left}%; top:-10%; font-size:${16 + (i % 12)}px; animation: shadowFloat ${dur}s ease-in-out infinite; top:${Math.round(Math.random() * 88)}%; opacity:0.85">${icons[i % icons.length]}</div>`;
+      const burstIcons = ['🦋', '✨', '🎉', '💜', '⭐', '🌸', '🎊', '🦋', '💎', '🐾'];
+      // 1. Залп хлопушки из центра экрана (разлетаются бабочки и яркие мусоринки)
+      const burstHtml = Array.from({ length: 42 }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / 42 + (Math.random() * 0.3);
+        const dist = 140 + Math.random() * 340;
+        const tx = Math.round(Math.cos(angle) * dist) + 'px';
+        const ty = Math.round(Math.sin(angle) * dist - 60) + 'px';
+        const rot = Math.round(Math.random() * 520 - 260) + 'deg';
+        const dur = (1.3 + Math.random() * 1.1).toFixed(2);
+        return `<div style="position:absolute; left:50%; top:46%; font-size:${16 + (i % 14)}px; --tx:${tx}; --ty:${ty}; --rot:${rot}; animation: confettiPopBurst ${dur}s cubic-bezier(0.16, 1, 0.3, 1) forwards;">${burstIcons[i % burstIcons.length]}</div>`;
       }).join('');
 
+      // 2. Порхающие бабочки и огоньки по краям вокруг карточки
+      const ambientHtml = Array.from({ length: 28 }, (_, i) => {
+        const left = i % 2 === 0 ? Math.round(2 + Math.random() * 22) : Math.round(76 + Math.random() * 20);
+        const top = Math.round(5 + Math.random() * 88);
+        const bx = (Math.random() * 50 - 25).toFixed(0) + 'px';
+        const by = (Math.random() * -55 - 15).toFixed(0) + 'px';
+        const dur = (2.2 + Math.random() * 2.2).toFixed(2);
+        const icon = ['🦋', '✨', '🦋', '⭐', '💜', '🌸'][i % 6];
+        return `<div style="position:absolute; left:${left}%; top:${top}%; font-size:${18 + (i % 12)}px; --bx:${bx}; --by:${by}; animation: butterflyFloatAround ${dur}s ease-in-out infinite;">${icon}</div>`;
+      }).join('');
+
+      confBox.innerHTML = burstHtml + ambientHtml;
       document.getElementById('celebrationModal').classList.remove('hidden');
     }
 
@@ -5717,11 +5735,191 @@ async function saveBookFromModal(openTrackerAfter = false) {
       });
       return map;
     }
+        /* =========================================================================
+       17. УЮТНЫЙ ASMR-СИНТЕЗАТОР ЗВУКОВ (БЕЗ РЕЗКОСТИ И ВНЕШНИХ ФАЙЛОВ)
+       ========================================================================= */
+    state.soundEnabled = localStorage.getItem('sr_sound_fx') !== 'off';
+    let audioCtx = null;
+
+    function getAudioCtx() {
+      if (!state.soundEnabled) return null;
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) audioCtx = new Ctx();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function updateSoundToggleBtnUI() {
+      const btn = document.getElementById('soundToggleBtn');
+      if (!btn) return;
+      btn.innerHTML = state.soundEnabled
+        ? '🔊 <span class="hidden lg:inline">Звук</span>'
+        : '🔇 <span class="hidden lg:inline">Тихо</span>';
+      btn.style.opacity = state.soundEnabled ? '1' : '0.6';
+    }
+
+    function toggleSoundEffects() {
+      state.soundEnabled = !state.soundEnabled;
+      localStorage.setItem('sr_sound_fx', state.soundEnabled ? 'on' : 'off');
+      updateSoundToggleBtnUI();
+      if (state.soundEnabled) playSound('bloop');
+    }
+
+    function playSound(type) {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      if (type === 'tab') {
+        // Приглушённый комфортный «тук/тык» для вкладок меню
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.065);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.07);
+      } else if (type === 'bloop') {
+        // Нежный «чпоньк/блуп» (звёздочки оценки, поглаживание котика)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(290, now);
+        osc.frequency.exponentialRampToValueAtTime(580, now + 0.09);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.1);
+      } else if (type === 'close') {
+        // Мягкий воздушный «пуф/вуш» при закрытии любого окошка
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(95, now + 0.09);
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.095);
+      } else if (type === 'pencil') {
+        // Шуршащая подпись карандаша по бумаге при сохранении книги
+        [0, 0.13].forEach((offset, idx) => {
+          const dur = idx === 0 ? 0.09 : 0.12;
+          const bufSize = Math.floor(ctx.sampleRate * dur);
+          const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufSize) * Math.PI);
+          const noise = ctx.createBufferSource();
+          noise.buffer = buf;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.value = idx === 0 ? 1500 : 1850;
+          filter.Q.value = 2.2;
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.22, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + offset + dur);
+          noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+          noise.start(now + offset);
+        });
+      } else if (type === 'cardTick') {
+        // Мягкое бархатное пролистывание карты в рулетке Таро
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(210, now);
+        osc.frequency.exponentialRampToValueAtTime(85, now + 0.032);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.032);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.035);
+      } else if (type === 'celebrate') {
+        // 1. Глухой объёмный хлопок праздничной хлопушки
+        const popOsc = ctx.createOscillator();
+        const popGain = ctx.createGain();
+        popOsc.type = 'sine';
+        popOsc.frequency.setValueAtTime(190, now);
+        popOsc.frequency.exponentialRampToValueAtTime(42, now + 0.16);
+        popGain.gain.setValueAtTime(0.32, now);
+        popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+        popOsc.connect(popGain); popGain.connect(ctx.destination);
+        popOsc.start(now); popOsc.stop(now + 0.18);
+
+        // 2. Мягкие не-звонкие фанфары (тёплый бархатный аккорд арфы)
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const filter = ctx.createBiquadFilter();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          filter.type = 'lowpass';
+          filter.frequency.value = 1100;
+          const startT = now + 0.12 + i * 0.085;
+          gain.gain.setValueAtTime(0.001, startT);
+          gain.gain.linearRampToValueAtTime(0.14, startT + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.75);
+          osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+          osc.start(startT); osc.stop(startT + 0.78);
+        });
+      }
+    }
+
+    // Привязываем звуки к вкладкам, сохранению, оценке, рулетке и закрытию ЛЮБЫХ окошек
+    const _origSwitchMainView = switchMainView;
+    switchMainView = function(viewName) {
+      playSound('tab');
+      _origSwitchMainView(viewName);
+    };
+
+    const _origSetShelfFilter = setShelfFilter;
+    setShelfFilter = function(shelf) {
+      playSound('tab');
+      _origSetShelfFilter(shelf);
+    };
+
+    const _origOnStarClick = onStarClick;
+    onStarClick = function(score) {
+      playSound('bloop');
+      _origOnStarClick(score);
+    };
+
+    const _origPetShadowCat = petShadowCat;
+    petShadowCat = function() {
+      playSound('bloop');
+      _origPetShadowCat();
+    };
+
+    const _origSpinCardRoulette = spinCardRoulette;
+    spinCardRoulette = function(poolType) {
+      if (!isSpinningRoulette) {
+        [0, 120, 250, 390, 550, 730, 930, 1160, 1420, 1720, 2050].forEach(ms => {
+          setTimeout(() => playSound('cardTick'), ms);
+        });
+        setTimeout(() => playSound('bloop'), 2950);
+      }
+      _origSpinCardRoulette(poolType);
+    };
+
+    // Глобальный перехватчик закрытия любых окошек (по кнопкам ✕ и Отмена)
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const txt = (btn.textContent || '').trim();
+      const oc = btn.getAttribute('onclick') || '';
+      if (txt === '✕' || txt === 'Отмена' || oc.includes('close') || oc.includes("classList.add('hidden')")) {
+        playSound('close');
+      }
+    });
 
     const _origSaveBook = saveBookFromModal;
     saveBookFromModal = async function(openTrackerAfter = false) {
       const wasRead = editingBookId && state.books.find(b => b.id === editingBookId)?.status === 'read';
       const snap = snapshotAchMap();
+      playSound('pencil');
       await _origSaveBook(openTrackerAfter);
       const savedBook = editingBookId ? state.books.find(b => b.id === editingBookId) : state.books[state.books.length - 1];
       if (!openTrackerAfter && savedBook && savedBook.status === 'read' && !wasRead) {
@@ -5734,6 +5932,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
       const bookId = document.getElementById('sessionBookSelect').value;
       const wasRead = state.books.find(b => b.id === bookId)?.status === 'read';
       const snap = snapshotAchMap();
+      playSound('pencil');
       await _origSaveSession();
       const updated = state.books.find(b => b.id === bookId);
       if (updated && updated.status === 'read' && !wasRead) {
@@ -5741,7 +5940,10 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
     };
 
-    window.addEventListener('DOMContentLoaded', loadAppState);
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSoundToggleBtnUI();
+      loadAppState();
+    });
     
       
   </script>
