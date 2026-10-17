@@ -5153,16 +5153,31 @@ async function saveBookFromModal(openTrackerAfter = false) {
     }
 
     async function openBackupModal() {
+      // 1. Отрисовка жанров для чистки
+      const gContainer = document.getElementById('manageGenresContainer');
+      if (gContainer) {
+        const gCounts = getGenreUsageCounts();
+        const sortedG = getSmartSortedGenres([]);
+        gContainer.innerHTML = sortedG.length ? sortedG.map(g => `
+          <span class="px-2.5 py-1 rounded-xl btn-soft flex items-center gap-1.5 font-semibold">
+            ${escapeHtml(g)} <span class="opacity-70 text-[10px]">(${gCounts[g] || 0})</span>
+            <button onclick="deleteGenreGlobal('${escapeHtmlAttr(g)}')" class="hover:text-red-400 font-bold ml-1" title="Удалить жанр">✕</button>
+          </span>
+        `).join('') : '<span class="opacity-60 italic">Жанров пока нет</span>';
+      }
+
+      // 2. Отрисовка тегов для чистки
       const container = document.getElementById('manageTagsContainer');
       const counts = getTagUsageCounts();
       const sorted = getSmartSortedTags([]);
 
-      container.innerHTML = sorted.map(t => `
+      container.innerHTML = sorted.length ? sorted.map(t => `
         <span style="border:1px solid ${t.color}; background:${t.color}25" class="px-2.5 py-1 rounded-xl flex items-center gap-1.5 font-semibold">
           ${escapeHtml(t.name)} <span class="opacity-70 text-[10px]">(${counts[t.name] || 0})</span>
-          <button onclick="deleteTagGlobal('${escapeHtmlAttr(t.name)}')" class="hover:text-red-400 font-bold ml-1">✕</button>
+          <button onclick="deleteTagGlobal('${escapeHtmlAttr(t.name)}')" class="hover:text-red-400 font-bold ml-1" title="Удалить тег">✕</button>
         </span>
-      `).join('');
+      `).join('') : '<span class="opacity-60 italic">Тегов пока нет</span>';
+
       document.getElementById('backupModal').classList.remove('hidden');
 
       const armorBox = document.getElementById('storageArmorBox');
@@ -5181,14 +5196,184 @@ async function saveBookFromModal(openTrackerAfter = false) {
         } catch (e) {}
       }
     }
-    
+
+    async function deleteGenreGlobal(genreName) {
+      state.genres = state.genres.filter(g => g !== genreName);
+      await dbPut('meta', { key: 'genres', value: state.genres });
+      for (const b of state.books) {
+        if (Array.isArray(b.genres) && b.genres.includes(genreName)) {
+          b.genres = b.genres.filter(g => g !== genreName);
+          await dbPut('books', b);
+        }
+      }
+      openBackupModal();
+      refreshAllUI();
+    }
+
+    async function cleanUnusedGenres() {
+      const counts = getGenreUsageCounts();
+      state.genres = state.genres.filter(g => (counts[g] || 0) > 0);
+      await dbPut('meta', { key: 'genres', value: state.genres });
+      openBackupModal();
+      refreshAllUI();
+    }
 
     async function deleteTagGlobal(tagName) {
       state.tags = state.tags.filter(t => t.name !== tagName);
       await dbPut('meta', { key: 'tags', value: state.tags });
+      for (const b of state.books) {
+        if (Array.isArray(b.tags) && b.tags.includes(tagName)) {
+          b.tags = b.tags.filter(t => t !== tagName);
+          await dbPut('books', b);
+        }
+      }
       openBackupModal();
       refreshAllUI();
     }
+
+    async function cleanUnusedTags() {
+      const counts = getTagUsageCounts();
+      state.tags = state.tags.filter(t => (counts[t.name] || 0) > 0);
+      await dbPut('meta', { key: 'tags', value: state.tags });
+      openBackupModal();
+      refreshAllUI();
+    }
+        /* =========================================================================
+       СКАНЕР ШТРИХКОДА КАМЕРОЙ И АВТОПОИСК ПО ISBN (GOOGLE BOOKS + OPENLIBRARY)
+       ========================================================================= */
+    let isbnStream = null;
+    let isbnScanTimer = null;
+
+    async function toggleIsbnCamera() {
+      const box = document.getElementById('isbnCameraBox');
+      if (!box.classList.contains('hidden')) {
+        stopIsbnCamera();
+        return;
+      }
+      const statusEl = document.getElementById('isbnSearchStatus');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        statusEl.textContent = '⚠️ Браузер не дал доступ к камере';
+        return;
+      }
+      try {
+        isbnStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        const video = document.getElementById('isbnVideo');
+        video.srcObject = isbnStream;
+        await video.play();
+        box.classList.remove('hidden');
+        statusEl.textContent = '📷 Наведи камеру на штрихкод книги...';
+
+        if ('BarcodeDetector' in window) {
+          const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a'] });
+          isbnScanTimer = setInterval(async () => {
+            if (video.readyState >= 2) {
+              try {
+                const codes = await detector.detect(video);
+                if (codes && codes.length > 0 && codes[0].rawValue) {
+                  const foundCode = codes[0].rawValue;
+                  document.getElementById('isbnInput').value = foundCode;
+                  if (typeof playSound === 'function') playSound('bloop');
+                  stopIsbnCamera();
+                  searchBookByIsbn();
+                }
+              } catch (e) {}
+            }
+          }, 350);
+        } else {
+          statusEl.textContent = '⚠️ На этом устройстве автосканер штрихкода отключён — впиши цифры ISBN вручную';
+        }
+      } catch (err) {
+        statusEl.textContent = '⚠️ Не удалось включить камеру (проверь разрешение браузера)';
+      }
+    }
+
+    function stopIsbnCamera() {
+      if (isbnScanTimer) { clearInterval(isbnScanTimer); isbnScanTimer = null; }
+      if (isbnStream) {
+        isbnStream.getTracks().forEach(t => t.stop());
+        isbnStream = null;
+      }
+      const box = document.getElementById('isbnCameraBox');
+      if (box) box.classList.add('hidden');
+    }
+
+    async function searchBookByIsbn() {
+      const raw = (document.getElementById('isbnInput').value || '').trim();
+      const statusEl = document.getElementById('isbnSearchStatus');
+      if (!raw) {
+        statusEl.textContent = '⚠️ Сначала введи ISBN или название книги!';
+        return;
+      }
+
+      const cleanDigits = raw.replace(/[^0-9Xx]/g, '');
+      const isIsbn = cleanDigits.length === 10 || cleanDigits.length === 13;
+      statusEl.textContent = '⏳ Ищу книгу в мировых архивах...';
+
+      try {
+        let info = null;
+
+        // 1. Пробуем точный поиск по ISBN в Google Books
+        if (isIsbn) {
+          const r1 = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanDigits}&maxResults=1`);
+          const d1 = await r1.json();
+          if (d1.items && d1.items[0]?.volumeInfo) info = d1.items[0].volumeInfo;
+        }
+
+        // 2. Если по строгому префиксу не нашлось (частая история для РФ-изданий) — ищем свободным запросом
+        if (!info) {
+          const qStr = encodeURIComponent(isIsbn ? cleanDigits : raw);
+          const r2 = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${qStr}&maxResults=1`);
+          const d2 = await r2.json();
+          if (d2.items && d2.items[0]?.volumeInfo) info = d2.items[0].volumeInfo;
+        }
+
+        // 3. Запасной запрос в OpenLibrary
+        if (!info && isIsbn) {
+          const r3 = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanDigits}&format=json&jscmd=data`);
+          const d3 = await r3.json();
+          const olBook = d3[`ISBN:${cleanDigits}`];
+          if (olBook) {
+            info = {
+              title: olBook.title,
+              authors: (olBook.authors || []).map(a => a.name),
+              pageCount: olBook.number_of_pages,
+              description: typeof olBook.notes === 'string' ? olBook.notes : '',
+              imageLinks: olBook.cover ? { thumbnail: olBook.cover.large || olBook.cover.medium } : null
+            };
+          }
+        }
+
+        if (!info) {
+          statusEl.textContent = '😿 По этому коду ничего не нашлось. Попробуй вписать название и автора!';
+          return;
+        }
+
+        if (info.title) document.getElementById('modalTitle').value = info.title;
+        if (info.authors && info.authors.length) document.getElementById('modalAuthor').value = info.authors.join(', ');
+        if (info.pageCount && Number(info.pageCount) > 0) {
+          document.getElementById('modalTotalPages').value = Number(info.pageCount);
+          updateModalProgressPreview();
+        }
+        if (info.description) {
+          document.getElementById('modalAnnotation').value = info.description;
+          updateAnnotationBadge();
+        }
+        if (info.imageLinks && (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail)) {
+          const rawUrl = (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail).replace(/^http:\/\//i, 'https://');
+          modalDraft.cover = rawUrl;
+          document.getElementById('modalCoverPreview').src = rawUrl;
+        }
+
+        if (typeof playSound === 'function') playSound('bloop');
+        statusEl.textContent = `✅ Найдено: «${info.title || 'Книга'}»!`;
+      } catch (err) {
+        statusEl.textContent = '⚠️ Ошибка сети при поиске книги.';
+      }
+    }
+    
 
     // Безопасная отправка файла бэкапа через системное меню Android в APK
     async function shareBackupJsonForApk() {
