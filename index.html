@@ -2025,6 +2025,11 @@ const ACQ_META = {
 
     function buildShadowCatSvg(isFed) {
       const eyeColor = isFed ? '#c084fc' : '#fbbf24';
+      const savedCostume = Number(localStorage.getItem('sr_cat_costume') || 0);
+      const autoLvl = typeof getCatEvolutionStatus === 'function' ? getCatEvolutionStatus().level : 1;
+      const lvl = savedCostume > 0 ? savedCostume : autoLvl;
+      const outfit = typeof getCatCostumeLayers === 'function' ? getCatCostumeLayers(lvl) : { back: '', front: '' };
+
       const mouthPath = isFed
         ? `<path d="M52 67 Q56 72 60 67 Q64 72 68 67" stroke="#f5eeff" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
         : `<path d="M53 71 Q60 65 67 71" stroke="#fbbf24" stroke-width="2" fill="none" stroke-linecap="round"/>
@@ -2038,6 +2043,7 @@ const ACQ_META = {
 
       return `<svg viewBox="0 0 120 120" class="w-full h-full overflow-visible">
         <circle cx="60" cy="64" r="44" fill="rgba(168,85,247,0.22)" class="shadow-aura"/>
+        ${outfit.back}
         <path class="shadow-tail" d="M35 92 Q10 82 14 56 Q17 42 25 48 Q20 65 36 80" fill="none" stroke="#110c1d" stroke-width="9" stroke-linecap="round"/>
         <ellipse cx="60" cy="84" rx="26" ry="20" fill="#110c1d" stroke="rgba(192,132,252,0.45)" stroke-width="1.5"/>
         <polygon points="34,48 30,18 52,36" fill="#110c1d" stroke="rgba(192,132,252,0.5)" stroke-width="1.5"/>
@@ -2045,8 +2051,11 @@ const ACQ_META = {
         <circle cx="60" cy="56" r="26" fill="#110c1d" stroke="rgba(192,132,252,0.55)" stroke-width="1.5"/>
         <path d="M57 36 A5 5 0 1 0 65 41 A4 4 0 1 1 57 36 Z" fill="${eyeColor}" opacity="0.85"/>
         ${eyesSvg}${mouthPath}
+        ${outfit.front}
       </svg>`;
     }
+    
+
 
     function petShadowCat() { quoteIdx++; renderShadowCatWidget(); }
     function toggleCatDemoHunger() {
