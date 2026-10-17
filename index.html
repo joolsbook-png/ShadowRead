@@ -523,14 +523,14 @@
           </div>
           <div>
             <h1 class="text-base sm:text-xl font-bold tracking-wide flex items-center gap-2">
-              ShadowRead <span class="text-[11px] px-2 py-0.5 rounded-full btn-soft font-semibold">v3.0 APK</span>
+              ShadowRead <span class="text-[11px] px-2 py-0.5 rounded-full btn-soft font-semibold">v3.2 PWA</span>
             </h1>
             <p class="text-[11px] hidden sm:block" style="color: var(--text-muted)">Твой личный книжный бункер</p>
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
-          <select id="themeSelector" onchange="changeTheme(this.value)" class="theme-input text-xs rounded-xl px-2.5 py-2 font-semibold cursor-pointer max-w-[145px] sm:max-w-none">
+        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <select id="themeSelector" onchange="changeTheme(this.value)" class="theme-input text-xs rounded-xl px-2.5 py-2 font-semibold cursor-pointer max-w-[138px] sm:max-w-none">
             <option value="lilac-dusk">💜 Лиловый сумрак</option>
             <option value="sunset-clouds">🌅 Закат в облаках</option>
             <option value="halloween">🎃 Хэллоуин (Аним.)</option>
@@ -542,10 +542,13 @@
             <option value="dark-academia">☕ Тёмная Академия</option>
           </select>
 
-          <button onclick="toggleThemeAnimations()" id="animToggleBtn" title="Включить или выключить анимацию темы" class="btn-soft px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
-            ✨ <span class="hidden md:inline">Аним: Вкл</span>
+          <button onclick="toggleThemeAnimations()" id="animToggleBtn" title="Вкл/Выкл анимацию темы" class="btn-soft px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+            ✨ <span class="hidden lg:inline">Аним</span>
           </button>
-          
+
+          <button onclick="toggleSoundEffects()" id="soundToggleBtn" title="Вкл/Выкл уютные звуки" class="btn-soft px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+            🔊 <span class="hidden lg:inline">Звук</span>
+          </button>
 
           <button onclick="openBackupModal()" title="Бэкап, Теги и Настройки" class="btn-soft px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
             ⚙️ <span class="hidden md:inline">База / Бэкап</span>
@@ -555,6 +558,8 @@
             ＋ <span class="hidden xs:inline">Книга</span>
           </button>
         </div>
+        
+
       </div>
 
       <!-- Second Row: ЯРКИЕ ВЫДЕЛЕННЫЕ РАЗДЕЛЫ НАВИГАЦИИ (5 ВКЛАДОК) -->
