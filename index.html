@@ -71,6 +71,127 @@
       --shadow-glow: 0 10px 30px -5px rgba(244, 114, 182, 0.28);
     }
 
+    /* Тема с клавиатуры: Розовый закат в облаках */
+    [data-theme="sunset-clouds"] {
+      --bg-main: #7c6ee6;
+      --bg-secondary: rgba(68, 42, 114, 0.48);
+      --bg-card: rgba(76, 46, 122, 0.52);
+      --bg-card-hover: rgba(94, 58, 145, 0.65);
+      --text-main: #ffffff;
+      --text-muted: #fce7f3;
+      --accent: #f472b6;
+      --accent-strong: #8b5cf6;
+      --accent-bright: #fbcfe8;
+      --accent-soft: rgba(255, 255, 255, 0.22);
+      --border-color: rgba(255, 255, 255, 0.42);
+      --shadow-glow: 0 10px 30px -5px rgba(124, 110, 230, 0.4);
+    }
+    [data-theme="sunset-clouds"] body {
+      background: linear-gradient(180deg, #f6a6c1 0%, #df9ef5 46%, #8373e8 100%) fixed !important;
+    }
+    [data-theme="sunset-clouds"] .theme-card,
+    [data-theme="sunset-clouds"] .theme-card-secondary {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Изумрудный Слизерин */
+    [data-theme="emerald-forest"] {
+      --bg-main: #081410;
+      --bg-secondary: #0f241d;
+      --bg-card: #153228;
+      --bg-card-hover: #1c4235;
+      --text-main: #ecfdf5;
+      --text-muted: #a7f3d0;
+      --accent: #10b981;
+      --accent-strong: #059669;
+      --accent-bright: #34d399;
+      --accent-soft: rgba(16, 185, 129, 0.2);
+      --border-color: rgba(52, 211, 153, 0.3);
+      --shadow-glow: 0 10px 30px -5px rgba(16, 185, 129, 0.25);
+    }
+
+    /* Тёмная Академия (Кофе и Пергамент) */
+    [data-theme="dark-academia"] {
+      --bg-main: #18120f;
+      --bg-secondary: #241b16;
+      --bg-card: #30241d;
+      --bg-card-hover: #3d2e25;
+      --text-main: #fef3c7;
+      --text-muted: #d6bfa9;
+      --accent: #f59e0b;
+      --accent-strong: #b45309;
+      --accent-bright: #fbbf24;
+      --accent-soft: rgba(245, 158, 11, 0.2);
+      --border-color: rgba(245, 158, 11, 0.3);
+      --shadow-glow: 0 10px 30px -5px rgba(180, 83, 9, 0.28);
+    }
+        /* Анимированная тема: Хэллоуин */
+    [data-theme="halloween"] {
+      --bg-main: #0c0612;
+      --bg-secondary: #160b21;
+      --bg-card: #211030;
+      --bg-card-hover: #2d1642;
+      --text-main: #fff7ed;
+      --text-muted: #fdba74;
+      --accent: #f97316;
+      --accent-strong: #c2410c;
+      --accent-bright: #fb923c;
+      --accent-soft: rgba(249, 115, 22, 0.22);
+      --border-color: rgba(249, 115, 22, 0.38);
+      --shadow-glow: 0 10px 30px -5px rgba(249, 115, 22, 0.32);
+    }
+
+    /* Анимированная тема: Зимняя сказка / Новый год */
+    [data-theme="winter-tale"] {
+      --bg-main: #091326;
+      --bg-secondary: #10213d;
+      --bg-card: #172e54;
+      --bg-card-hover: #1f3d6e;
+      --text-main: #f0f9ff;
+      --text-muted: #bae6fd;
+      --accent: #38bdf8;
+      --accent-strong: #0284c7;
+      --accent-bright: #fde047;
+      --accent-soft: rgba(56, 189, 248, 0.22);
+      --border-color: rgba(125, 211, 252, 0.35);
+      --shadow-glow: 0 10px 30px -5px rgba(56, 189, 248, 0.3);
+    }
+
+    @keyframes fallDownSpin {
+      0% { transform: translateY(-10vh) translateX(0) rotate(0deg); opacity: 0; }
+      15% { opacity: 0.9; }
+      85% { opacity: 0.9; }
+      100% { transform: translateY(105vh) translateX(35px) rotate(360deg); opacity: 0; }
+    }
+    @keyframes pumpkinWiggle {
+      0%, 100% { transform: rotate(-7deg) scale(1); }
+      50% { transform: rotate(8deg) scale(1.08); }
+    }
+    @keyframes candleFlicker {
+      0%, 100% { filter: drop-shadow(0 0 6px #f59e0b); transform: scale(1); opacity: 0.95; }
+      50% { filter: drop-shadow(0 0 14px #ef4444); transform: scale(1.06, 0.94); opacity: 1; }
+    }
+    @keyframes skeletonWalk {
+      0% { transform: translateX(0) rotate(-4deg); }
+      25% { transform: translateX(12px) translateY(-3px) rotate(5deg); }
+      50% { transform: translateX(24px) rotate(-5deg); }
+      75% { transform: translateX(12px) translateY(-3px) rotate(4deg); }
+      100% { transform: translateX(0) rotate(-4deg); }
+    }
+    @keyframes batFlyAcross {
+      0% { transform: translate(-10vw, 20vh) scale(0.7); opacity: 0; }
+      15% { opacity: 0.95; }
+      50% { transform: translate(45vw, 8vh) scale(1.1); }
+      85% { opacity: 0.95; }
+      100% { transform: translate(108vw, 25vh) scale(0.7); opacity: 0; }
+    }
+    @keyframes bulbTwinkle {
+      0%, 100% { opacity: 0.45; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.18); filter: drop-shadow(0 0 8px currentColor); }
+    }
+    
+
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       background-color: var(--bg-main);
