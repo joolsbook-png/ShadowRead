@@ -773,7 +773,44 @@
       </div>
     </div>
 
+    <!-- ==========================================
+         VIEW 5: ЗАЛ ДОСТИЖЕНИЙ (АЧИВКИ И ЭВОЛЮЦИЯ КОТА)
+         ========================================== -->
+    <div id="view-achievements" class="hidden space-y-6">
+      <!-- Top Banner: Cat Evolution Progress -->
+      <div id="achCatEvolutionCard" class="theme-card rounded-3xl p-4 sm:p-6 relative overflow-hidden"></div>
+
+      <!-- Filter Bar for Achievements -->
+      <div class="theme-card rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+          <button onclick="setAchFilter('all')" id="ach-filter-all" class="px-3 py-1.5 rounded-xl font-bold btn-accent">
+            🏆 Все категории
+          </button>
+          <button onclick="setAchFilter('unlocked')" id="ach-filter-unlocked" class="px-3 py-1.5 rounded-xl font-semibold btn-soft">
+            ✨ Открытые звания
+          </button>
+          <button onclick="setAchFilter('cycles')" id="ach-filter-cycles" class="px-3 py-1.5 rounded-xl font-semibold btn-soft">
+            📚 Циклы и Кирпичи
+          </button>
+          <button onclick="setAchFilter('dark')" id="ach-filter-dark" class="px-3 py-1.5 rounded-xl font-semibold btn-soft">
+            🌶️ Жанры и ДНК
+          </button>
+          <button onclick="setAchFilter('tags')" id="ach-filter-tags" class="px-3 py-1.5 rounded-xl font-semibold btn-soft">
+            🚩 Флаги и Тропы
+          </button>
+          <button onclick="setAchFilter('finance')" id="ach-filter-finance" class="px-3 py-1.5 rounded-xl font-semibold btn-soft">
+            🏴‍☠️ Пиратство и Траты
+          </button>
+        </div>
+        <div id="achTotalSummaryBadge" class="text-xs font-extrabold px-3 py-1.5 rounded-xl btn-soft"></div>
+      </div>
+
+      <!-- Achievements Container by Category -->
+      <div id="achievementsContainer" class="space-y-6"></div>
+    </div>
+
   </main>
+  
 
   <!-- =========================================================
        MODAL 1: ПОЛНАЯ КАРТОЧКА КНИГИ + ПОКУПКА/ПИРАТСТВО + ПЕРЕЧИТЫВАНИЕ
