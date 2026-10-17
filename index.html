@@ -3392,16 +3392,78 @@ const ACQ_META = {
     }
 
     /* =========================================================================
-       9. МУДБОРД + ОБРЕЗКА КАРТИНОК (CROPPER)
+       9. МУДБОРД 2.0 (ЛИСТЫ, АРТЫ, НАКЛЕЙКИ-ЭМОДЗИ, КИСТЬ, МАРКЕР И СПРЕЙ)
        ========================================================================= */
     let croppingSourceImage = null;
+    let mbCurrentTool = 'move';
+    let mbBrushColor = '#ef4444';
+    let mbDrawLayerInitialized = false;
+
+    const MB_QUICK_EMOJIS = [
+      '❤️','🖤','💜','❤️‍🔥','💔','💋','🔥','🌶️','✨','⭐','🌙','🦋','👑','🗡️','🩸','🥀','🕯️','💀','🍷','⛓️','🚩','🌿','😭','🥵','😻','😼','🐾','🐈‍⬛','🎀','💎'
+    ];
+
+    function toggleMoodboardEmojiBar() {
+      const bar = document.getElementById('mbEmojiPickerBar');
+      const isHidden = bar.classList.toggle('hidden');
+      if (!isHidden) {
+        document.getElementById('mbQuickEmojisList').innerHTML = MB_QUICK_EMOJIS.map(em =>
+          `<button type="button" onclick="addEmojiStickerToMoodboard('${em}')" class="hover:scale-125 transition px-1.5 py-0.5 rounded-lg hover:bg-white/10">${em}</button>`
+        ).join('');
+      }
+    }
+
+    function addCustomEmojiFromInput() {
+      const inp = document.getElementById('mbCustomEmojiInput');
+      const val = (inp.value || '').trim();
+      if (!val) return;
+      addEmojiStickerToMoodboard(val);
+      inp.value = '';
+    }
+
+    function addEmojiStickerToMoodboard(emojiChar) {
+      setMoodboardTool('move');
+      const newItem = {
+        id: 'mbe_' + Date.now() + '_' + Math.floor(Math.random() * 999),
+        type: 'emoji',
+        emoji: emojiChar,
+        x: 60 + (modalDraft.moodboard.length * 28) % 240,
+        y: 40 + (modalDraft.moodboard.length * 24) % 160,
+        width: 68,
+        rotation: Math.round(Math.random() * 20 - 10)
+      };
+      modalDraft.moodboard.push(newItem);
+      modalDraft.selectedMoodboardItemId = newItem.id;
+      if (typeof playSound === 'function') playSound('bloop');
+      renderMoodboardItems();
+    }
+
+    function setMoodboardPaper(paperColor) {
+      modalDraft.mbPaper = paperColor;
+      applyMoodboardPaperVisual();
+    }
+
+    function applyMoodboardPaperVisual() {
+      const canvas = document.getElementById('moodboardCanvas');
+      if (!canvas) return;
+      const p = modalDraft.mbPaper || 'theme';
+      if (p === 'theme') {
+        canvas.style.backgroundColor = 'var(--bg-secondary)';
+        canvas.style.backgroundImage = 'radial-gradient(var(--border-color) 1px, transparent 1px)';
+      } else {
+        canvas.style.backgroundColor = p;
+        canvas.style.backgroundImage = 'radial-gradient(rgba(120,120,140,0.22) 1px, transparent 1px)';
+      }
+    }
 
     async function addImagesToMoodboard(e) {
+      setMoodboardTool('move');
       const files = Array.from(e.target.files || []);
       for (let i = 0; i < files.length; i++) {
         const dataUrl = await compressImageFile(files[i], 600, 0.84);
         const newItem = {
           id: 'mb_' + Date.now() + '_' + i,
+          type: 'image',
           src: dataUrl,
           x: 25 + (modalDraft.moodboard.length * 35) % 220,
           y: 20 + (modalDraft.moodboard.length * 25) % 150,
@@ -3419,40 +3481,62 @@ const ACQ_META = {
       const canvas = document.getElementById('moodboardCanvas');
       const hint = document.getElementById('moodboardEmptyHint');
       const toolbar = document.getElementById('moodboardToolbar');
+      if (!canvas) return;
 
-      hint.classList.toggle('hidden', modalDraft.moodboard.length > 0);
+      applyMoodboardPaperVisual();
+      initMoodboardDrawLayerEvents();
+
+      const hasContent = modalDraft.moodboard.length > 0 || Boolean(modalDraft.mbDrawing);
+      hint.classList.toggle('hidden', hasContent);
       canvas.querySelectorAll('.moodboard-item').forEach(el => el.remove());
 
       modalDraft.moodboard.forEach((item, idx) => {
         const div = document.createElement('div');
-        const isSel = item.id === modalDraft.selectedMoodboardItemId;
+        const isSel = item.id === modalDraft.selectedMoodboardItemId && mbCurrentTool === 'move';
+        const isEmoji = item.type === 'emoji';
+
         div.className = `moodboard-item ${isSel ? 'selected' : ''}`;
         div.style.left = `${item.x}px`;
         div.style.top = `${item.y}px`;
-        div.style.width = `${item.width || 160}px`;
         div.style.transform = `rotate(${item.rotation || 0}deg)`;
         div.style.zIndex = isSel ? 35 : (idx + 2);
 
-        const img = document.createElement('img');
-        img.src = item.src;
-        img.className = 'w-full h-auto rounded-lg pointer-events-none block';
-        div.appendChild(img);
+        if (isEmoji) {
+          div.style.boxShadow = 'none';
+          div.style.background = 'transparent';
+          div.style.width = 'auto';
+          div.style.fontSize = `${item.width || 64}px`;
+          div.style.lineHeight = '1';
+          div.style.padding = '4px';
+          div.textContent = item.emoji;
+        } else {
+          div.style.width = `${item.width || 160}px`;
+          const img = document.createElement('img');
+          img.src = item.src;
+          img.className = 'w-full h-auto rounded-lg pointer-events-none block';
+          div.appendChild(img);
+        }
 
         div.addEventListener('pointerdown', (ev) => startMoodboardDrag(ev, item.id));
         canvas.appendChild(div);
       });
 
       const selItem = modalDraft.moodboard.find(x => x.id === modalDraft.selectedMoodboardItemId);
-      if (selItem) {
+      if (selItem && mbCurrentTool === 'move') {
         toolbar.classList.remove('hidden');
-        document.getElementById('mbSizeSlider').value = selItem.width || 160;
+        document.getElementById('mbSizeSlider').value = selItem.width || (selItem.type === 'emoji' ? 64 : 160);
         document.getElementById('mbRotateSlider').value = selItem.rotation || 0;
+        const isEmoji = selItem.type === 'emoji';
+        document.getElementById('mbSelectedTypeLabel').textContent = isEmoji ? `Эмодзи ${selItem.emoji}:` : 'Арт:';
+        document.getElementById('mbCropBtn').classList.toggle('hidden', isEmoji);
       } else {
         toolbar.classList.add('hidden');
       }
-    }
 
-    function startMoodboardDrag(ev, itemId) {
+      restoreMoodboardDrawingImage();
+    }
+        function startMoodboardDrag(ev, itemId) {
+      if (mbCurrentTool !== 'move') return;
       ev.stopPropagation();
       modalDraft.selectedMoodboardItemId = itemId;
       renderMoodboardItems();
@@ -3464,8 +3548,8 @@ const ACQ_META = {
       const origX = item.x, origY = item.y;
 
       function onMove(moveEv) {
-        item.x = Math.max(-20, Math.min(canvas.clientWidth - 60, origX + (moveEv.clientX - startX)));
-        item.y = Math.max(-20, Math.min(canvas.clientHeight - 60, origY + (moveEv.clientY - startY)));
+        item.x = Math.max(-30, Math.min(canvas.clientWidth - 40, origX + (moveEv.clientX - startX)));
+        item.y = Math.max(-30, Math.min(canvas.clientHeight - 40, origY + (moveEv.clientY - startY)));
         renderMoodboardItems();
       }
       function onUp() {
@@ -3498,6 +3582,173 @@ const ACQ_META = {
       modalDraft.selectedMoodboardItemId = null;
       renderMoodboardItems();
     }
+
+    function setMoodboardTool(toolName) {
+      mbCurrentTool = toolName;
+      ['move', 'brush', 'marker', 'spray', 'eraser'].forEach(t => {
+        const btn = document.getElementById(`mbTool-${t}`);
+        if (btn) {
+          btn.className = t === toolName
+            ? 'px-2.5 py-1 rounded-xl font-bold btn-accent'
+            : 'px-2.5 py-1 rounded-xl font-semibold btn-soft';
+        }
+      });
+
+      const drawLayer = document.getElementById('moodboardDrawLayer');
+      const drawControls = document.getElementById('mbDrawControls');
+      if (toolName === 'move') {
+        drawLayer.classList.add('pointer-events-none');
+        drawLayer.style.cursor = 'default';
+        drawControls.classList.add('hidden');
+      } else {
+        modalDraft.selectedMoodboardItemId = null;
+        document.getElementById('moodboardToolbar').classList.add('hidden');
+        drawLayer.classList.remove('pointer-events-none');
+        drawLayer.style.cursor = 'crosshair';
+        drawControls.classList.remove('hidden');
+      }
+    }
+
+    function setMbBrushColor(hex) {
+      mbBrushColor = hex;
+      const picker = document.getElementById('mbBrushColorPicker');
+      if (picker) picker.value = hex;
+      if (mbCurrentTool === 'eraser') setMoodboardTool('brush');
+    }
+
+    let lastLoadedDrawingStr = null;
+    function restoreMoodboardDrawingImage() {
+      const drawCanvas = document.getElementById('moodboardDrawLayer');
+      if (!drawCanvas) return;
+      const ctx = drawCanvas.getContext('2d');
+      if (!modalDraft.mbDrawing) {
+        ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        lastLoadedDrawingStr = '';
+        return;
+      }
+      if (lastLoadedDrawingStr === modalDraft.mbDrawing) return;
+      lastLoadedDrawingStr = modalDraft.mbDrawing;
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        ctx.drawImage(img, 0, 0, drawCanvas.width, drawCanvas.height);
+      };
+      img.src = modalDraft.mbDrawing;
+    }
+
+    function clearMoodboardDrawing() {
+      const drawCanvas = document.getElementById('moodboardDrawLayer');
+      if (!drawCanvas) return;
+      drawCanvas.getContext('2d').clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      modalDraft.mbDrawing = '';
+      lastLoadedDrawingStr = '';
+    }
+
+    function initMoodboardDrawLayerEvents() {
+      if (mbDrawLayerInitialized) return;
+      const drawCanvas = document.getElementById('moodboardDrawLayer');
+      if (!drawCanvas) return;
+      mbDrawLayerInitialized = true;
+
+      let isDrawing = false;
+      let lastX = 0, lastY = 0;
+
+      function getCoords(ev) {
+        const rect = drawCanvas.getBoundingClientRect();
+        return {
+          x: (ev.clientX - rect.left) * (drawCanvas.width / rect.width),
+          y: (ev.clientY - rect.top) * (drawCanvas.height / rect.height)
+        };
+      }
+
+      function sprayAt(ctx, x, y, size) {
+        const radius = size * 1.9;
+        const dots = Math.floor(size * 3.2);
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = mbBrushColor;
+        for (let i = 0; i < dots; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.random() * radius;
+          const dx = x + Math.cos(angle) * r;
+          const dy = y + Math.sin(angle) * r;
+          ctx.globalAlpha = 0.25 + Math.random() * 0.65;
+          const dotR = Math.random() * 1.6 + 0.6;
+          ctx.beginPath();
+          ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      drawCanvas.addEventListener('pointerdown', (ev) => {
+        if (mbCurrentTool === 'move') return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        isDrawing = true;
+        drawCanvas.setPointerCapture(ev.pointerId);
+        const pt = getCoords(ev);
+        lastX = pt.x; lastY = pt.y;
+        const size = Number(document.getElementById('mbBrushSize').value) || 8;
+        const ctx = drawCanvas.getContext('2d');
+        document.getElementById('moodboardEmptyHint').classList.add('hidden');
+
+        if (mbCurrentTool === 'spray') {
+          sprayAt(ctx, pt.x, pt.y, size);
+        }
+      });
+
+      drawCanvas.addEventListener('pointermove', (ev) => {
+        if (!isDrawing || mbCurrentTool === 'move') return;
+        ev.preventDefault();
+        const pt = getCoords(ev);
+        const size = Number(document.getElementById('mbBrushSize').value) || 8;
+        const ctx = drawCanvas.getContext('2d');
+
+        if (mbCurrentTool === 'spray') {
+          sprayAt(ctx, pt.x, pt.y, size);
+        } else {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(lastX, lastY);
+          ctx.lineTo(pt.x, pt.y);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+
+          if (mbCurrentTool === 'eraser') {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.lineWidth = size * 2.4;
+            ctx.stroke();
+          } else if (mbCurrentTool === 'marker') {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = mbBrushColor;
+            ctx.globalAlpha = 0.28;
+            ctx.lineWidth = size * 2.2;
+            ctx.stroke();
+          } else {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = mbBrushColor;
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = size;
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+        lastX = pt.x; lastY = pt.y;
+      });
+
+      function finishStroke() {
+        if (!isDrawing) return;
+        isDrawing = false;
+        modalDraft.mbDrawing = drawCanvas.toDataURL('image/png');
+        lastLoadedDrawingStr = modalDraft.mbDrawing;
+      }
+
+      drawCanvas.addEventListener('pointerup', finishStroke);
+      drawCanvas.addEventListener('pointercancel', finishStroke);
+    }
+    
+    
 
     async function openCropModalForSelected() {
       const item = modalDraft.moodboard.find(x => x.id === modalDraft.selectedMoodboardItemId);
