@@ -3715,7 +3715,10 @@ async function saveBookFromModal(openTrackerAfter = false) {
         hatedChars: document.getElementById('modalHatedChars').value.trim(),
         reviewText: document.getElementById('modalReviewText').value.trim(),
         cover: modalDraft.cover || makeGeneratedCover(title, author, '#581c87', '#1e1b4b'),
-        moodboard: modalDraft.moodboard,
+                moodboard: modalDraft.moodboard,
+        mbPaper: modalDraft.mbPaper || 'theme',
+        mbDrawing: modalDraft.mbDrawing || '',
+        
         notes: modalDraft.notes,
         createdAt: editingBookId ? (state.books.find(x => x.id === editingBookId)?.createdAt || Date.now()) : Date.now()
       };
