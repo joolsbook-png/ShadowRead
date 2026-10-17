@@ -5194,15 +5194,43 @@ async function saveBookFromModal(openTrackerAfter = false) {
                   <!-- Текущий титул -->
                   <div class="theme-card-secondary rounded-xl p-2.5 space-y-1">
                     <div class="text-[10px] uppercase tracking-wider font-bold" style="color: var(--text-muted)">
-                      ${isUnlocked ? '🏅 Текущее звание:' : '🔒 Звание пока закрыто'}
+                      ${isUnlocked ? '🏅 Текущее активное звание:' : '🔒 Звание пока закрыто'}
                     </div>
                     <div class="text-xs sm:text-sm font-extrabold" style="color: ${isUnlocked ? 'var(--accent-bright)' : 'var(--text-muted)'}">
                       «${escapeHtml(a.currentTitle)}»
                     </div>
                   </div>
+
+                  <!-- Горизонтальная прокрутка ВСЕХ ступеней (прошлых, текущей и будущих) -->
+                  <div class="space-y-1 pt-0.5">
+                    <div class="text-[10px] font-bold opacity-75" style="color: var(--text-muted)">
+                      ↔️ Листай влево-вправо все ступени (I–${roman[a.maxLevel] || a.maxLevel}):
+                    </div>
+                    <div class="flex items-stretch gap-2 overflow-x-auto pb-1.5 pt-0.5">
+                      ${a.tiers.map((tr, idx) => {
+                        const lvlNum = idx + 1;
+                        const done = a.val >= tr.t;
+                        const isCur = a.currentLevel === lvlNum;
+                        return `
+                          <div class="flex-shrink-0 w-44 rounded-xl p-2 text-[11px] border flex flex-col justify-between ${done ? 'theme-card-secondary' : 'bg-black/20 opacity-55'}"
+                               style="border-color: ${isCur ? '#fbbf24' : (done ? 'var(--accent)' : 'var(--border-color)')}">
+                            <div class="flex items-center justify-between font-extrabold text-[10px]">
+                              <span style="color: ${done ? 'var(--accent)' : 'var(--text-muted)'}">
+                                ${done ? '✅' : '🔒'} Ур. ${roman[lvlNum] || lvlNum}
+                              </span>
+                              <span>${tr.t.toLocaleString('ru-RU')} ${a.unit}</span>
+                            </div>
+                            <div class="font-bold leading-snug mt-1 ${done ? 'text-white' : ''}">
+                              «${escapeHtml(tr.title)}»
+                            </div>
+                          </div>
+                        `;
+                      }).join('')}
+                    </div>
+                  </div>
                 </div>
 
-                <!-- Полоска прогресса и следующая цель -->
+                <!-- Полоска прогресса -->
                 <div class="space-y-1.5 pt-1">
                   <div class="flex items-center justify-between text-xs font-bold">
                     <span>Прогресс: <strong style="color: var(--accent)">${a.val.toLocaleString('ru-RU')}</strong> / ${targetVal.toLocaleString('ru-RU')}${a.unit}</span>
@@ -5210,18 +5238,8 @@ async function saveBookFromModal(openTrackerAfter = false) {
                   </div>
                   <div class="w-full bg-black/40 h-2.5 rounded-full overflow-hidden p-0.5">
                     <div class="h-full rounded-full transition-all duration-500"
-                         style="width: ${a.pct}%; background:${isMax ? 'linear-gradient(90deg, #fbbf24, #f59e0b)' : 'linear-gradient(90deg, var(--accent), #f472b6)'}"></div>
+                         style="width: ${a.pct}\%; background:${isMax ? 'linear-gradient(90deg, #fbbf24, #f59e0b)' : 'linear-gradient(90deg, var(--accent), #f472b6)'}"></div>
                   </div>
-                  ${a.nextTier ? `
-                    <div class="text-[11px] flex items-center justify-between pt-0.5" style="color: var(--text-muted)">
-                      <span>🎯 След. (${a.nextTier.t.toLocaleString('ru-RU')} ${a.unit}):</span>
-                      <span class="font-bold truncate max-w-[180px]" title="${escapeHtmlAttr(a.nextTier.title)}">«${escapeHtml(a.nextTier.title)}»</span>
-                    </div>
-                  ` : `
-                    <div class="text-[11px] font-bold text-amber-300 text-center pt-0.5">
-                      ✨ Максимальный уровень покорён!
-                    </div>
-                  `}
                 </div>
               </div>
             `;
@@ -5229,6 +5247,8 @@ async function saveBookFromModal(openTrackerAfter = false) {
         </div>
       `;
     }
+    
+
 
     // Обновляем бейдж титула Кота также при каждом рендере котика
     const _origRenderShadowCat = renderShadowCatWidget;
