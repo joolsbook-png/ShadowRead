@@ -3653,11 +3653,19 @@ async function saveBookFromModal(openTrackerAfter = false) {
 
     async function deleteCurrentBook() {
       if (!editingBookId) return;
+      const b = state.books.find(x => x.id === editingBookId);
+      const bookName = b ? `«${b.title}»` : 'эту книгу';
+      const isSure = confirm(
+        `🐾 Хозяйка, ты ТОЧНО хочешь насовсем удалить ${bookName} из базы?\n\n💡 Подсказка: если нужно просто убрать её из Календаря прочитанного — нажми «Отмена» и поменяй ей полку на «К чтению» или «Читаю»!`
+      );
+      if (!isSure) return;
+
       await dbDelete('books', editingBookId);
       state.books = await dbGetAll('books');
       closeBookModal();
       refreshAllUI();
     }
+    
 
     // ОТКРЫТКА КНИГИ (Безопасный рендер через Анти-Краш Модалку для APK!)
     async function exportSingleBookCardPng() {
