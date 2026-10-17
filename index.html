@@ -1895,14 +1895,17 @@ const ACQ_META = {
       if (!document.getElementById('view-wrapup').classList.contains('hidden')) renderWrapupCanvas();
     }
 
-    function switchMainView(viewName) {
-      ['library', 'calendar', 'wrapup', 'stats'].forEach(v => {
-        document.getElementById(`view-${v}`).classList.toggle('hidden', v !== viewName);
+     function switchMainView(viewName) {
+      ['library', 'calendar', 'wrapup', 'stats', 'achievements'].forEach(v => {
+        const viewEl = document.getElementById(`view-${v}`);
+        if (viewEl) viewEl.classList.toggle('hidden', v !== viewName);
         const btn = document.getElementById(`nav-${v}`);
+        if (!btn) return;
+        const spanCol = v === 'achievements' ? 'col-span-2 sm:col-span-1 ' : '';
         if (v === viewName) {
-          btn.className = 'nav-tab nav-tab-active px-3 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5';
+          btn.className = `nav-tab nav-tab-active ${spanCol}px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5`;
         } else {
-          btn.className = 'nav-tab nav-tab-inactive px-3 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5';
+          btn.className = `nav-tab nav-tab-inactive ${spanCol}px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5`;
         }
       });
 
@@ -1912,7 +1915,10 @@ const ACQ_META = {
       }
       if (viewName === 'wrapup') renderWrapupCanvas();
       if (viewName === 'stats') renderStatsView();
-    }
+      if (viewName === 'achievements') renderAchievementsView();
+     }
+      
+
 
     /* =========================================================================
        6. ТЕНЕВОЙ КОТИК (SHADOW CAT COMPANION)
