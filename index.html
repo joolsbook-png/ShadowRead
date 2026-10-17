@@ -3027,7 +3027,10 @@ const ACQ_META = {
         modalDraft.genres = [...(existing.genres || [])];
         modalDraft.tags = [...(existing.tags || [])];
         modalDraft.notes = cleanedNotes;
-        modalDraft.moodboard = JSON.parse(JSON.stringify(existing.moodboard || []));
+                modalDraft.moodboard = JSON.parse(JSON.stringify(existing.moodboard || []));
+        modalDraft.mbPaper = existing.mbPaper || 'theme';
+        modalDraft.mbDrawing = existing.mbDrawing || '';
+        
       } else {
         document.getElementById('bookModalHeaderTitle').textContent = 'Новая книга в архив';
         document.getElementById('deleteBookBtn').classList.add('hidden');
