@@ -1308,7 +1308,37 @@
               <div id="mbQuickEmojisList" class="flex flex-wrap gap-1.5 text-lg select-none"></div>
             </div>
           </div>
-          
+                    <!-- Панель выбранного Арта или Эмодзи (размер, поворот, обрезка, удаление) -->
+          <div id="moodboardToolbar" class="hidden flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-black/40 border text-xs" style="border-color: var(--border-color)">
+            <div class="flex flex-wrap items-center gap-3">
+              <span id="mbSelectedTypeLabel" class="font-bold" style="color: var(--accent)">Элемент:</span>
+              <label class="flex items-center gap-1">
+                Размер:
+                <input type="range" id="mbSizeSlider" min="36" max="380" value="160" oninput="resizeSelectedMoodboardImage(this.value)" />
+              </label>
+              <label class="flex items-center gap-1">
+                Поворот:
+                <input type="range" id="mbRotateSlider" min="-180" max="180" value="0" oninput="rotateSelectedMoodboardImage(this.value)" />
+              </label>
+              <button type="button" id="mbCropBtn" onclick="openCropModalForSelected()" class="btn-accent px-2.5 py-1 rounded-lg font-bold">
+                ✂️ Обрезать
+              </button>
+            </div>
+            <button type="button" onclick="deleteSelectedMoodboardImage()" class="px-2.5 py-1 rounded-lg bg-red-600/80 text-white font-bold">
+              🗑️ Удалить
+            </button>
+          </div>
+
+          <!-- Сам Холст Мудборда (Арты + Эмодзи + Прозрачный слой для рисования поверх!) -->
+          <div id="moodboardCanvas" class="moodboard-canvas" onclick="deselectMoodboardImage(event)">
+            <div id="moodboardEmptyHint" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-4 z-0" style="color: var(--text-muted)">
+              <span class="text-2xl mb-1">✨🎨🖼️✨</span>
+              <span class="text-xs">Творческий лист визуализации к книге.<br/>Выбери цвет листа, вставляй арты, клей эмодзи и рисуй кистью или спреем!</span>
+            </div>
+            <canvas id="moodboardDrawLayer" width="900" height="400" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 32;"></canvas>
+          </div>
+        </div>
+        
 
         <!-- SECTION E: ЗАМЕТКИ К КНИГЕ С КОТАМИ -->
         <div class="theme-card-secondary rounded-2xl p-3.5 space-y-3.5">
