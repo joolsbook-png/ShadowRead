@@ -4360,7 +4360,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }, null, 2);
     }
 
-    function openBackupModal() {
+    async function openBackupModal() {
       const container = document.getElementById('manageTagsContainer');
       const counts = getTagUsageCounts();
       const sorted = getSmartSortedTags([]);
@@ -4372,7 +4372,24 @@ async function saveBookFromModal(openTrackerAfter = false) {
         </span>
       `).join('');
       document.getElementById('backupModal').classList.remove('hidden');
+
+      const armorBox = document.getElementById('storageArmorBox');
+      if (armorBox && navigator.storage) {
+        try {
+          const isPersisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+          const est = navigator.storage.estimate ? await navigator.storage.estimate() : { usage: 0, quota: 0 };
+          const usedMb = ((est.usage || 0) / (1024 * 1024)).toFixed(2);
+          const quotaGb = ((est.quota || 0) / (1024 * 1024 * 1024)).toFixed(1);
+          armorBox.innerHTML = `
+            <div>📦 Занято базой и обложками: <strong style="color:var(--accent)">${usedMb} МБ</strong> (доступно ~${quotaGb} ГБ)</div>
+            <span class="px-2.5 py-1 rounded-xl font-extrabold ${isPersisted ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300'}">
+              ${isPersisted ? '🛡️ Броня от автоочистки активна' : '⚠️ Стандартный режим браузера'}
+            </span>
+          `;
+        } catch (e) {}
+      }
     }
+    
 
     async function deleteTagGlobal(tagName) {
       state.tags = state.tags.filter(t => t.name !== tagName);
