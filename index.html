@@ -1432,7 +1432,7 @@
   <div id="backupModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
     <div class="theme-card max-w-xl w-full rounded-3xl p-4 sm:p-6 space-y-4 border max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
-        <h3 class="text-base sm:text-lg font-bold">⚙️ База данных, Бэкап (APK) и Теги</h3>
+        <h3 class="text-base sm:text-lg font-bold">⚙️ База данных, Бэкап и Теги</h3>
         <button onclick="document.getElementById('backupModal').classList.add('hidden')" class="btn-soft w-8 h-8 rounded-xl font-bold">✕</button>
       </div>
 
@@ -1440,16 +1440,16 @@
       <div id="storageArmorBox" class="theme-card-secondary rounded-2xl p-3 text-xs flex flex-wrap items-center justify-between gap-2 border" style="border-color: var(--border-color)">
         <span>⏳ Проверка хранилища...</span>
       </div>
-      
 
-      <!-- Способ 1: Файлы + Системная шторка Поделиться для Android APK -->
+      <!-- Способ 1: Файлы + Системная шторка Поделиться -->
       <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2.5 text-xs">
         <h4 class="font-bold text-sm" style="color: var(--accent)">📲 Способ 1: Сохранить или загрузить файл (.JSON)</h4>
-        <p style="color: var(--text-muted)">Если ты в APK на телефоне — жми <strong>«Поделиться файлом»</strong> (откроется меню телефона без вылетов).</p>
+        <p style="color: var(--text-muted)">На планшете или телефоне удобно жать <strong>«Поделиться»</strong> (чтобы отправить бэкап в Избранное ТГ или сохранить в файлы) либо <strong>«Скачать»</strong>.</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
           <button onclick="shareBackupJsonForApk()" class="btn-accent px-3 py-2.5 rounded-xl font-bold">
-            📲 Поделиться (APK)
+            📲 Поделиться
           </button>
+          
           <button onclick="exportFullBackupJson()" class="btn-soft px-3 py-2.5 rounded-xl font-bold">
             💻 Скачать (Браузер)
           </button>
