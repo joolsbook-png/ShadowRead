@@ -4614,7 +4614,565 @@ async function saveBookFromModal(openTrackerAfter = false) {
       return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
+        /* =========================================================================
+       16. ЗАЛ ДОСТИЖЕНИЙ (АЧИВКИ, ТИТУЛЫ КОТА И НОРМАЛИЗАТОР Ё/РЕГИСТРА)
+       ========================================================================= */
+    let currentAchFilter = 'all';
+
+    // Функция-нормализатор: переводит в нижний регистр, меняет все «ё» на «е» и убирает лишние пробелы
+    function normText(str) {
+      return String(str || '').toLowerCase().replace(/ё/g, 'е').replace(/[-_/]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // Проверка, есть ли у книги хотя бы один жанр или тег из списка корней/синонимов
+    function bookMatchesKeywords(book, keywords, searchIn = 'both') {
+      const pool = [];
+      if (searchIn === 'genres' || searchIn === 'both') pool.push(...(book.genres || []));
+      if (searchIn === 'tags' || searchIn === 'both') pool.push(...(book.tags || []));
+      const normalizedPool = pool.map(normText);
+
+      return keywords.some(kw => {
+        const nKw = normText(kw);
+        return normalizedPool.some(item => item.includes(nKw));
+      });
+    }
+
+    const CAT_EVOLUTION_RANKS = [
+      { min: 0,      next: 10000,  title: 'Котёнок из чернил',           icon: '🐾', desc: 'Маленький сгусток тьмы, который только учится охотиться на главы.' },
+      { min: 10000,  next: 30000,  title: 'Упитанный фамильяр',          icon: '🐈‍⬛', desc: 'Щёчки округлились от десяти тысяч проглоченных страниц!' },
+      { min: 30000,  next: 50000,  title: 'Бархатный Пожиратель Главы',  icon: '🌙', desc: 'Бесшумно крадётся сквозь сюжетные повороты и требует добавки.' },
+      { min: 50000,  next: 100000, title: 'Кот-Бегемот книжного шкафа',  icon: '🎩', desc: 'Вальяжно починяет примус на вершине твоих прочитанных циклов.' },
+      { min: 100000, next: 250000, title: 'Древний Демон Библиотеки',    icon: '🔥', desc: 'Сотня тысяч страниц внутри! Его мурчание сотрясает книжные полки.' },
+      { min: 250000, next: 500000, title: 'Абсолютное Божество Тьмы',    icon: '👑', desc: 'Верховный Повелитель всех букв, сюжетов и читательских душ!' }
+    ];
+
+    function getCatEvolutionStatus() {
+      const totalPages = state.books.reduce((sum, b) => sum + (Number(b.readPages) || 0), 0);
+      let currentRank = CAT_EVOLUTION_RANKS[0];
+      let rankIdx = 0;
+      for (let i = 0; i < CAT_EVOLUTION_RANKS.length; i++) {
+        if (totalPages >= CAT_EVOLUTION_RANKS[i].min) {
+          currentRank = CAT_EVOLUTION_RANKS[i];
+          rankIdx = i;
+        }
+      }
+      const nextRank = CAT_EVOLUTION_RANKS[rankIdx + 1] || null;
+      return { totalPages, currentRank, nextRank, level: rankIdx + 1, maxLevel: CAT_EVOLUTION_RANKS.length };
+    }
+
+    // Автоматически обновляем бейдж титула Кота в верхней шапке приложения
+    function updateHeaderCatEvolutionBadge() {
+      const badgeEl = document.getElementById('catEvolutionRankBadge');
+      if (!badgeEl) return;
+      const evo = getCatEvolutionStatus();
+      badgeEl.innerHTML = `${evo.currentRank.icon} Титул: ${evo.currentRank.title} (Ур. ${evo.level})`;
+    }
+
+    // Вычисляем все показатели библиотеки для ачивок
+    function computeAchievementMetrics() {
+      const readBooks = state.books.filter(b => b.status === 'read');
+
+      // Группируем циклы: цикл считается ПОЛНОСТЬЮ прочитанным длины N, если в нём N книг и все они прочитаны
+      const seriesMap = {};
+      let singlesRead = 0;
+
+      state.books.forEach(b => {
+        const sName = normText(b.series);
+        if (!sName) {
+          if (b.status === 'read') singlesRead++;
+        } else {
+          if (!seriesMap[sName]) seriesMap[sName] = [];
+          seriesMap[sName].push(b);
+        }
+      });
+
+      let duologies = 0, trilogies = 0, tetralogies = 0, pentalogies = 0, sagas = 0;
+      Object.values(seriesMap).forEach(group => {
+        const readInGroup = group.filter(b => b.status === 'read').length;
+        // Засчитываем цикл по числу прочитанных томов (если прочитаны все добавленные в цикл тома и их >= 2)
+        if (readInGroup >= 2 && readInGroup === group.length) {
+          if (readInGroup === 2) duologies++;
+          else if (readInGroup === 3) trilogies++;
+          else if (readInGroup === 4) tetralogies++;
+          else if (readInGroup === 5 || readInGroup === 6) pentalogies++;
+          else if (readInGroup >= 7) sagas++;
+        }
+      });
+
+      // Кирпичи 650+ страниц
+      const bricks = readBooks.filter(b => (Number(b.totalPages) || 0) >= 650).length;
+
+      // Пиратство, Подписка и Траты (учитываются по всем книгам/покупкам)
+      const piratedRead = readBooks.filter(b => !b.acqType || b.acqType === 'pirate').length;
+      const subRead = readBooks.filter(b => b.acqType === 'sub').length;
+      const totalSpent = state.books
+        .filter(b => b.acqType === 'buy-paper' || b.acqType === 'buy-ebook' || b.acqType === 'sub')
+        .reduce((sum, b) => sum + (Number(b.price) || 0), 0);
+
+      // Оценки 1-3 и 9-10
+      const lowRated = readBooks.filter(b => Number(b.rating) > 0 && Number(b.rating) <= 3.5).length;
+      const highRated = readBooks.filter(b => Number(b.rating) >= 9).length;
+
+      // Жанры и ДНК
+      const darkCount = readBooks.filter(b => bookMatchesKeywords(b, ['темное фэнтези', 'дарк фэнтези', 'дарк романс', 'темный ромком'], 'both')).length;
+      const scifiCount = readBooks.filter(b => bookMatchesKeywords(b, ['научная фантастика', 'космоопера', 'sci fi', 'киберпанк', 'антиутопия', 'постапокалипсис'], 'both')).length;
+      const gothicCount = readBooks.filter(b => bookMatchesKeywords(b, ['готика', 'классика', 'мифология', 'фольклор'], 'both')).length;
+
+      const glassDnaCount = readBooks.filter(b => (b.subratings && Number(b.subratings.glass) >= 8) || bookMatchesKeywords(b, ['стекло', 'стеклище', 'драма'], 'both')).length;
+      const spiceDnaCount = readBooks.filter(b => (b.subratings && Number(b.subratings.spice) >= 8) || bookMatchesKeywords(b, ['18+', 'горячо', 'пикантно'], 'both')).length;
+
+      // Теговые достижения (с поддержкой синонимов и без привязки к Ё/регистру)
+      const redFlags = readBooks.filter(b => bookMatchesKeywords(b, ['красный флаг', 'ред флаг', 'редфлаг', 'абьюз', 'одержимый герой', 'токсик', 'серая мораль'], 'tags')).length;
+      const greenFlags = readBooks.filter(b => bookMatchesKeywords(b, ['зеленый флаг', 'грин флаг', 'гринфлаг', 'комфортный герой', 'заботливый'], 'tags')).length;
+      const revHarem = readBooks.filter(b => bookMatchesKeywords(b, ['обратный гарем', 'мжм', 'жммм', 'жмммм', 'гарем'], 'tags')).length;
+      const virginFem = readBooks.filter(b => bookMatchesKeywords(b, ['девственница', 'невинная героиня', 'жгг девственница'], 'tags')).length;
+      const virginMale = readBooks.filter(b => bookMatchesKeywords(b, ['девственник', 'невинный герой', 'мгг девственник'], 'tags')).length;
+
+      return {
+        singlesRead, duologies, trilogies, tetralogies, pentalogies, sagas, bricks,
+        piratedRead, subRead, totalSpent, lowRated, highRated,
+        darkCount, scifiCount, gothicCount, glassDnaCount, spiceDnaCount,
+        redFlags, greenFlags, revHarem, virginFem, virginMale
+      };
+    }
+
+    function getAchievementsDefinitions() {
+      const m = computeAchievementMetrics();
+      return [
+        // КАТЕГОРИЯ 1: ЦИКЛЫ, ОДИНОЧКИ И КИРПИЧИ
+        {
+          id: 'singles', cat: 'cycles', icon: '📕', name: 'Одиночные книги', unit: 'кн.', val: m.singlesRead,
+          desc: 'Прочитанные однотомники вне серий',
+          tiers: [
+            { t: 10,  title: 'На одну ночь' },
+            { t: 25,  title: 'Никаких обязательств' },
+            { t: 50,  title: 'Свободная императрица' },
+            { t: 100, title: 'Мастер быстрых финалов' },
+            { t: 200, title: 'Богиня однотомников' }
+          ]
+        },
+        {
+          id: 'duologies', cat: 'cycles', icon: '☕', name: 'Дилогии (2 книги)', unit: 'цикл.', val: m.duologies,
+          desc: 'Полностью прочитанные циклы из 2 книг',
+          tiers: [
+            { t: 5,  title: 'Двойной эспрессо' },
+            { t: 15, title: 'Любительница дуплетов' },
+            { t: 30, title: 'Два по цене одного' },
+            { t: 50, title: 'Хранительница двухтомников' },
+            { t: 80, title: 'Королева Дилогий' }
+          ]
+        },
+        {
+          id: 'trilogies', cat: 'cycles', icon: '👑', name: 'Трилогии (3 книги)', unit: 'цикл.', val: m.trilogies,
+          desc: 'Полностью прочитанные циклы из 3 книг',
+          tiers: [
+            { t: 3,  title: 'Бог любит троицу' },
+            { t: 10, title: 'После первой и второй перерывчик небольшой' },
+            { t: 25, title: 'Охотница за трилогиями' },
+            { t: 50, title: 'Повелительница трёхтомников' },
+            { t: 75, title: 'Императрица Трилогий' }
+          ]
+        },
+        {
+          id: 'tetralogies', cat: 'cycles', icon: '🌙', name: 'Тетралогии (4 книги)', unit: 'цикл.', val: m.tetralogies,
+          desc: 'Полностью прочитанные циклы из 4 книг',
+          tiers: [
+            { t: 2,  title: 'Четыре всадника моего недосыпа' },
+            { t: 5,  title: 'Серьёзные отношения' },
+            { t: 12, title: 'Тайная четверокнижница' },
+            { t: 20, title: 'Гроза Тетралогий' },
+            { t: 30, title: 'Владычица Тетралогий' }
+          ]
+        },
+        {
+          id: 'pentalogies', cat: 'cycles', icon: '🔮', name: 'Пенталогии и Гексалогии (5–6 книг)', unit: 'цикл.', val: m.pentalogies,
+          desc: 'Завершённые масштабные циклы из 5–6 томов',
+          tiers: [
+            { t: 1,  title: 'Я здесь случайно' },
+            { t: 3,  title: 'Пять томов не предел' },
+            { t: 7,  title: 'Я уже своё отбоялась, мне ничего не страшно' },
+            { t: 12, title: 'Повелительница Пенталогий' },
+            { t: 20, title: 'Божество Гексалогий' }
+          ]
+        },
+        {
+          id: 'sagas', cat: 'cycles', icon: '🐉', name: 'Гигантские Саги (7+ книг)', unit: 'саг', val: m.sagas,
+          desc: 'Циклы-гиганты от 7 и более прочитанных книг',
+          tiers: [
+            { t: 1,  title: 'Санта-Барбара с магией' },
+            { t: 2,  title: 'Я состарюсь с этими героями' },
+            { t: 4,  title: 'Бессмертный летописец' },
+            { t: 7,  title: 'Хранительница Эпопей' },
+            { t: 10, title: 'Верховный Босс Книжных Саг' }
+          ]
+        },
+        {
+          id: 'bricks', cat: 'cycles', icon: '🧱', name: 'Укротительница Кирпичей (650+ стр.)', unit: 'кн.', val: m.bricks,
+          desc: 'Прочитанные книги объёмом от 650 страниц и выше',
+          tiers: [
+            { t: 3,  title: 'Оружие самообороны' },
+            { t: 10, title: 'Качаю бицепс перед сном' },
+            { t: 25, title: 'Если упадёт на лицо — вызывайте скорую' },
+            { t: 50, title: 'Архитектор Великой Книжной Стены' },
+            { t: 100, title: 'Богиня Тяжеловесных Фолиантов' }
+          ]
+        },
+
+        // КАТЕГОРИЯ 2: ЖАНРЫ, ДНК И ОЦЕНКИ
+        {
+          id: 'dark_lady', cat: 'dark', icon: '🖤', name: 'Тёмная Госпожа', unit: 'кн.', val: m.darkCount,
+          desc: 'Тёмное фэнтези, Дарк Романс и Тёмный ромком',
+          tiers: [
+            { t: 10,  title: 'Гостья сумерек' },
+            { t: 25,  title: 'Чёрный — цвет моей души' },
+            { t: 50,  title: 'Невеста Ночи и Теней' },
+            { t: 100, title: 'Владычица Мрачных Миров' },
+            { t: 150, title: 'Императрица Тьмы и Одержимости' }
+          ]
+        },
+        {
+          id: 'scifi_pilot', cat: 'dark', icon: '🚀', name: 'Межгалактический пилот', unit: 'кн.', val: m.scifiCount,
+          desc: 'Научная фантастика, Антиутопия и Постапокалипсис',
+          tiers: [
+            { t: 5,  title: 'Турист на орбите' },
+            { t: 15, title: 'Контрабандистка гиперпространства' },
+            { t: 30, title: 'Выжившая в постапокалипсисе' },
+            { t: 50, title: 'Любимчик безумных ИИ' },
+            { t: 80, title: 'Повелительница Звёздных Империй' }
+          ]
+        },
+        {
+          id: 'gothic_adept', cat: 'dark', icon: '🕯️', name: 'Адепт Готики и Классики', unit: 'кн.', val: m.gothicCount,
+          desc: 'Готика, Классика, Мифология и фольклор',
+          tiers: [
+            { t: 5,  title: 'Прогулки по вересковым пустошам' },
+            { t: 15, title: 'Чаепитие с призраками' },
+            { t: 30, title: 'Хранительница фамильных склепов' },
+            { t: 50, title: 'Муза Байрона и сестёр Бронте' },
+            { t: 80, title: 'Хозяйка проклятого поместья' }
+          ]
+        },
+        {
+          id: 'glass_eater', cat: 'dark', icon: '💔', name: 'Пожирательница Стекла', unit: 'кн.', val: m.glassDnaCount,
+          desc: 'Книги со шкалой «💔 Стекло» от 8 до 10 баллов (или жанром Драма)',
+          tiers: [
+            { t: 5,   title: 'Хруст разбитого сердечка' },
+            { t: 15,  title: 'Запиваю сюжет валерьянкой' },
+            { t: 30,  title: 'Так больно, что аж хорошо' },
+            { t: 50,  title: 'Мои слёзы можно продавать в флаконах' },
+            { t: 100, title: 'Стекло — мой завтрак, обед и ужин' }
+          ]
+        },
+        {
+          id: 'spice_queen', cat: 'dark', icon: '🌶️', name: 'Огненная Искусительница', unit: 'кн.', val: m.spiceDnaCount,
+          desc: 'Книги со шкалой «🌶️ Пикантность» от 8 до 10 баллов',
+          tiers: [
+            { t: 5,   title: 'Щёчки покраснели' },
+            { t: 15,  title: 'В комнате стало душно' },
+            { t: 30,  title: 'Любому предмету можно найти применение' },
+            { t: 50,  title: 'Святая инквизиция уже выехала за мной' },
+            { t: 100, title: 'Верховная жрица 18+' }
+          ]
+        },
+        {
+          id: 'hell_critic', cat: 'dark', icon: '🌵', name: 'Критик из Ада (Оценка 1–3⭐)', unit: 'кн.', val: m.lowRated,
+          desc: 'Дочитанные книги с разгромной оценкой от 1 до 3.5 баллов',
+          tiers: [
+            { t: 1,  title: 'Мои глаза кровоточат' },
+            { t: 3,  title: 'Зачем я это дочитала?!' },
+            { t: 5,  title: 'Кактус был колючий, но я его сгрызла' },
+            { t: 10, title: 'Почётный дегустатор литературного дна' },
+            { t: 20, title: 'Выжившая в токсичных графоманиях' }
+          ]
+        },
+        {
+          id: 'masterpiece_lover', cat: 'dark', icon: '💎', name: 'Влюблённый Котик (Оценка 9–10⭐)', unit: 'кн.', val: m.highRated,
+          desc: 'Книги-фавориты с высшей оценкой 9–10 баллов',
+          tiers: [
+            { t: 10,  title: 'Отборная годнота' },
+            { t: 25,  title: 'Охотница за шедеврами' },
+            { t: 50,  title: 'Золотой фонд моего сердечка' },
+            { t: 100, title: 'В моём бункере только элита' },
+            { t: 200, title: 'Магистр безупречного вкуса' }
+          ]
+        },
+
+        // КАТЕГОРИЯ 3: ФЛАГИ И ТЕГОВЫЕ ТРОПЫ
+        {
+          id: 'red_flags', cat: 'tags', icon: '🚩', name: 'Коллекционерка Красных Флагов', unit: 'кн.', val: m.redFlags,
+          desc: 'Теги: Красный флаг, Ред флаг, Абьюз, Одержимый герой, Серая мораль',
+          tiers: [
+            { t: 5,   title: 'Дальтоник: мне кажется, он зелёный' },
+            { t: 15,  title: 'Красный — мой любимый цвет' },
+            { t: 30,  title: 'Эмоциональные качели — мой любимый аттракцион' },
+            { t: 60,  title: 'Мне нужно к психологу (но сначала дочитаю главу)' },
+            { t: 100, title: 'Богиня Токсичного Рая: я могу его исправить!' }
+          ]
+        },
+        {
+          id: 'green_flags', cat: 'tags', icon: '🌿', name: 'Дрессировщица Зелёных Флагов', unit: 'кн.', val: m.greenFlags,
+          desc: 'Теги: Зелёный флаг, Грин флаг, Комфортный герой',
+          tiers: [
+            { t: 5,  title: 'Подозрительно адекватный мужик' },
+            { t: 15, title: 'Терапия здоровыми отношениями' },
+            { t: 30, title: 'Люблю послушных псов' },
+            { t: 50, title: 'Купаюсь в заботе и обожании' },
+            { t: 80, title: 'Госпожа Идеальных Мужей' }
+          ]
+        },
+        {
+          id: 'reverse_harem', cat: 'tags', icon: '🔥', name: 'Обратный гарем (Reverse Harem)', unit: 'кн.', val: m.revHarem,
+          desc: 'Теги: Обратный гарем, МЖМ, ЖМММ, ЖММММ',
+          tiers: [
+            { t: 2,  title: 'Зачем выбирать одного?' },
+            { t: 5,  title: 'Люблю внимание' },
+            { t: 10, title: 'Я возьму всех, заверните!' },
+            { t: 20, title: 'Горячих мужиков много не бывает' },
+            { t: 40, title: 'Верховная Султанша Книжного Гарема' }
+          ]
+        },
+        {
+          id: 'virgin_fem', cat: 'tags', icon: '🌸', name: 'Невинная фиалка (ЖГГ-девственница)', unit: 'кн.', val: m.virginFem,
+          desc: 'Теги: Девственница, Невинная героиня, ЖГГ девственница',
+          tiers: [
+            { t: 5,   title: 'Опять нецелованная роза...' },
+            { t: 15,  title: 'Анатомический театр абсурда' },
+            { t: 30,  title: 'Хранительница священного гимена' },
+            { t: 60,  title: 'У меня уже глаз дёргается от этой невинности' },
+            { t: 100, title: 'Сотня сорванных вишенок!' }
+          ]
+        },
+        {
+          id: 'virgin_male', cat: 'tags', icon: '🦄', name: 'Краснокнижный Единорог (МГГ-девственник)', unit: 'кн.', val: m.virginMale,
+          desc: 'Теги: Девственник, Невинный герой, МГГ девственник',
+          tiers: [
+            { t: 1,  title: 'О боже, они существуют?!' },
+            { t: 3,  title: 'В смысле у него не было 500 бывших куртизанок?!' },
+            { t: 7,  title: 'Сбой в матрице женских романов' },
+            { t: 12, title: 'Охотница на мифических единорогов' },
+            { t: 20, title: 'Хранительница Красной книги мужской невинности' }
+          ]
+        },
+
+        // КАТЕГОРИЯ 4: ПИРАТСТВО, ПОДПИСКА И ТРАТЫ
+        {
+          id: 'pirate_bay', cat: 'finance', icon: '🏴‍☠️', name: 'Пиратская Бухта', unit: 'кн.', val: m.piratedRead,
+          desc: 'Прочитанные спираченные и бесплатные книги',
+          tiers: [
+            { t: 10,  title: 'Юнга Флибусты' },
+            { t: 30,  title: 'Контрабандистка EPUB-ов' },
+            { t: 70,  title: 'Гроза авторских прав' },
+            { t: 150, title: 'Капитан «Чёрной Закладки»' },
+            { t: 300, title: 'Баронесса любительских переводов (Йо-хо-хо!)' }
+          ]
+        },
+        {
+          id: 'litres_sub', cat: 'finance', icon: '🎧', name: 'ЛитРес / Подписка', unit: 'кн.', val: m.subRead,
+          desc: 'Книги, прочитанные по подписке или абонементу',
+          tiers: [
+            { t: 5,   title: 'Легальный читер' },
+            { t: 15,  title: 'Окупила абонемент' },
+            { t: 30,  title: 'Выжимаю подписку досуха' },
+            { t: 60,  title: 'Кошмар маркетологов ЛитРеса' },
+            { t: 100, title: 'Богиня безлимита' }
+          ]
+        },
+        {
+          id: 'big_spender', cat: 'finance', icon: '💸', name: 'Книжный Транжира', unit: '₽', val: m.totalSpent,
+          desc: 'Общая сумма потраченных средств на покупку книг',
+          tiers: [
+            { t: 10000,  title: 'Это просто на распродаже было' },
+            { t: 20000,  title: 'Покупаю по акциям (честно-честно)' },
+            { t: 40000,  title: 'Регулярный спонсор типографий' },
+            { t: 60000,  title: 'Цветные срезы на меня плохо влияют' },
+            { t: 100000, title: 'Мужу лучше не знать эту цифру' },
+            { t: 150000, title: 'Лимитированные издания — необходимый декор для полок' },
+            { t: 250000, title: 'Золотой инвестор книжной индустрии' }
+          ]
+        }
+      ];
+    }
+
+              function evaluateSingleAchievement(ach) {
+      let currentLevel = 0;
+      let currentTitle = 'Звание ещё не открыто';
+      let nextTier = ach.tiers[0];
+      let prevThreshold = 0;
+
+      for (let i = 0; i < ach.tiers.length; i++) {
+        if (ach.val >= ach.tiers[i].t) {
+          currentLevel = i + 1;
+          currentTitle = ach.tiers[i].title;
+          prevThreshold = ach.tiers[i].t;
+          nextTier = ach.tiers[i + 1] || null;
+        }
+      }
+
+      const maxLevel = ach.tiers.length;
+      let pct = 100;
+      if (nextTier) {
+        const span = Math.max(1, nextTier.t - prevThreshold);
+        pct = Math.min(100, Math.max(0, Math.round(((ach.val - prevThreshold) / span) * 100)));
+      }
+
+      return {
+        ...ach,
+        currentLevel,
+        maxLevel,
+        currentTitle,
+        nextTier,
+        pct
+      };
+    }
+
+    function setAchFilter(filterKey) {
+      currentAchFilter = filterKey;
+      ['all', 'unlocked', 'cycles', 'dark', 'tags', 'finance'].forEach(k => {
+        const btn = document.getElementById(`ach-filter-${k}`);
+        if (!btn) return;
+        btn.className = k === filterKey
+          ? 'px-3 py-1.5 rounded-xl font-bold btn-accent'
+          : 'px-3 py-1.5 rounded-xl font-semibold btn-soft';
+      });
+      renderAchievementsView();
+    }
+
+    function renderAchievementsView() {
+      updateHeaderCatEvolutionBadge();
+      const evoEl = document.getElementById('achCatEvolutionCard');
+      const container = document.getElementById('achievementsContainer');
+      if (!evoEl || !container) return;
+
+      // 1. Рисуем верхний баннер Эволюции Теневого Кота за страницы
+      const evo = getCatEvolutionStatus();
+      const evoTarget = evo.nextRank ? evo.nextRank.min : evo.currentRank.min;
+      const evoPct = evo.nextRank
+        ? Math.min(100, Math.round(((evo.totalPages - evo.currentRank.min) / (evo.nextRank.min - evo.currentRank.min)) * 100))
+        : 100;
+
+      evoEl.innerHTML = `
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="space-y-1.5 text-center md:text-left">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold btn-accent">
+              <span>${evo.currentRank.icon} Эволюция Книжной Тени • Ступень ${evo.level} из ${evo.maxLevel}</span>
+            </div>
+            <h2 class="text-lg sm:text-2xl font-extrabold">«${evo.currentRank.title}»</h2>
+            <p class="text-xs sm:text-sm" style="color: var(--text-muted)">${evo.currentRank.desc}</p>
+            ${evo.nextRank ? `
+              <div class="text-xs font-bold pt-1">
+                Следующая форма на <span style="color: var(--accent)">${evo.nextRank.min.toLocaleString('ru-RU')} стр.</span>: «${evo.nextRank.title}» ${evo.nextRank.icon}
+              </div>
+            ` : `<div class="text-xs font-bold text-amber-300 pt-1">👑 Достигнута высшая форма эволюции Кота!</div>`}
+          </div>
+
+          <div class="w-full md:w-80 theme-card-secondary rounded-2xl p-3.5 space-y-2">
+            <div class="flex justify-between text-xs font-extrabold">
+              <span>Скормлено страниц:</span>
+              <span style="color: var(--accent)">${evo.totalPages.toLocaleString('ru-RU')} / ${evoTarget.toLocaleString('ru-RU')}</span>
+            </div>
+            <div class="w-full bg-black/40 h-3 rounded-full overflow-hidden p-0.5 border" style="border-color: var(--border-color)">
+              <div class="h-full rounded-full transition-all duration-500" style="width: ${evoPct}%; background: linear-gradient(90deg, var(--accent), #fbbf24)"></div>
+            </div>
+            <div class="flex justify-between text-[10px] opacity-75">
+              <span>Прогресс трансформации</span>
+              <span>${evoPct}%</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 2. Считаем и фильтруем все достижения
+      const allDefs = getAchievementsDefinitions().map(evaluateSingleAchievement);
+      const totalUnlockedTiers = allDefs.reduce((s, a) => s + a.currentLevel, 0);
+      const totalPossibleTiers = allDefs.reduce((s, a) => s + a.maxLevel, 0);
+
+      const summaryEl = document.getElementById('achTotalSummaryBadge');
+      if (summaryEl) {
+        summaryEl.innerHTML = `Выбито ступеней: <span style="color: var(--accent)">${totalUnlockedTiers} / ${totalPossibleTiers}</span> ⭐`;
+      }
+
+      const filtered = allDefs.filter(a => {
+        if (currentAchFilter === 'unlocked') return a.currentLevel > 0;
+        if (currentAchFilter !== 'all') return a.cat === currentAchFilter;
+        return true;
+      });
+
+      const roman = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          ${filtered.map(a => {
+            const isUnlocked = a.currentLevel > 0;
+            const isMax = !a.nextTier;
+            const targetVal = a.nextTier ? a.nextTier.t : a.tiers[a.tiers.length - 1].t;
+
+            return `
+              <div class="theme-card rounded-2xl p-4 flex flex-col justify-between space-y-3 border transition ${isUnlocked ? '' : 'opacity-75'}"
+                   style="border-color: ${isMax ? '#fbbf24' : (isUnlocked ? 'var(--accent)' : 'var(--border-color)')}">
+                <div class="space-y-1.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${isUnlocked ? 'btn-accent shadow' : 'theme-card-secondary'}">
+                        ${a.icon}
+                      </div>
+                      <div>
+                        <h4 class="text-xs sm:text-sm font-extrabold leading-tight">${escapeHtml(a.name)}</h4>
+                        <span class="text-[10px] opacity-75" style="color: var(--text-muted)">${escapeHtml(a.desc)}</span>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex-shrink-0 ${isMax ? 'bg-amber-500 text-black' : (isUnlocked ? 'btn-soft' : 'bg-black/30 opacity-60')}">
+                      Ур. ${roman[a.currentLevel] || a.currentLevel} /${roman[a.maxLevel] || a.maxLevel}
+                    </span>
+                  </div>
+
+                  <!-- Текущий титул -->
+                  <div class="theme-card-secondary rounded-xl p-2.5 space-y-1">
+                    <div class="text-[10px] uppercase tracking-wider font-bold" style="color: var(--text-muted)">
+                      ${isUnlocked ? '🏅 Текущее звание:' : '🔒 Звание пока закрыто'}
+                    </div>
+                    <div class="text-xs sm:text-sm font-extrabold" style="color: ${isUnlocked ? 'var(--accent-bright)' : 'var(--text-muted)'}">
+                      «${escapeHtml(a.currentTitle)}»
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Полоска прогресса и следующая цель -->
+                <div class="space-y-1.5 pt-1">
+                  <div class="flex items-center justify-between text-xs font-bold">
+                    <span>Прогресс: <strong style="color: var(--accent)">${a.val.toLocaleString('ru-RU')}</strong> / ${targetVal.toLocaleString('ru-RU')}${a.unit}</span>
+                    <span class="text-[11px]">${a.pct}%</span>
+                  </div>
+                  <div class="w-full bg-black/40 h-2.5 rounded-full overflow-hidden p-0.5">
+                    <div class="h-full rounded-full transition-all duration-500"
+                         style="width: ${a.pct}%; background:${isMax ? 'linear-gradient(90deg, #fbbf24, #f59e0b)' : 'linear-gradient(90deg, var(--accent), #f472b6)'}"></div>
+                  </div>
+                  ${a.nextTier ? `
+                    <div class="text-[11px] flex items-center justify-between pt-0.5" style="color: var(--text-muted)">
+                      <span>🎯 След. (${a.nextTier.t.toLocaleString('ru-RU')} ${a.unit}):</span>
+                      <span class="font-bold truncate max-w-[180px]" title="${escapeHtmlAttr(a.nextTier.title)}">«${escapeHtml(a.nextTier.title)}»</span>
+                    </div>
+                  ` : `
+                    <div class="text-[11px] font-bold text-amber-300 text-center pt-0.5">
+                      ✨ Максимальный уровень покорён!
+                    </div>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    // Обновляем бейдж титула Кота также при каждом рендере котика
+    const _origRenderShadowCat = renderShadowCatWidget;
+    renderShadowCatWidget = function() {
+      _origRenderShadowCat();
+      updateHeaderCatEvolutionBadge();
+    };
+
     window.addEventListener('DOMContentLoaded', loadAppState);
+      
   </script>
 </body>
 </html>
