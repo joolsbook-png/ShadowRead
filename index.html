@@ -1216,50 +1216,99 @@
           </div>
         </div>
 
-        <!-- SECTION D: ОТЗЫВ + МУДБОРД -->
+        <!-- SECTION D: ОТЗЫВ + МУДБОРД 2.0 (ЛИСТЫ, РИСОВАНИЕ, СПРЕЙ И ЭМОДЗИ) -->
         <div class="theme-card-secondary rounded-2xl p-3.5 space-y-3.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 class="font-bold text-sm sm:text-base">📝 Текст отзыва и Мудборд с артами</h3>
-              <p class="text-xs" style="color: var(--text-muted)">Добавляй картинки, двигай пальцем и кадрируй кнопкой «✂️ Обрезать»</p>
+              <h3 class="font-bold text-sm sm:text-base">📝 Текст отзыва и Творческий Мудборд</h3>
+              <p class="text-xs" style="color: var(--text-muted)">Клей арты и эмодзи, меняй цвет листа и рисуй кистью, маркером или спреем!</p>
             </div>
-            <label class="btn-accent px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow">
-              🖼️ Вставить арт на доску
-              <input type="file" accept="image/*" multiple onchange="addImagesToMoodboard(event)" class="hidden" />
-            </label>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <label class="btn-accent px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow">
+                🖼️ + Арт
+                <input type="file" accept="image/*" multiple onchange="addImagesToMoodboard(event)" class="hidden" />
+              </label>
+              <button type="button" onclick="toggleMoodboardEmojiBar()" class="btn-soft px-3 py-1.5 rounded-xl text-xs font-bold">
+                😍 + Эмодзи
+              </button>
+            </div>
           </div>
 
           <textarea id="modalReviewText" rows="4" placeholder="Твои эмоции, разбор сюжета, за что книга попала в топ или разорвала душу..." class="theme-input w-full rounded-xl p-3 text-xs sm:text-sm"></textarea>
 
-          <!-- Selected Moodboard Image Toolbar -->
-          <div id="moodboardToolbar" class="hidden flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-black/40 border text-xs" style="border-color: var(--border-color)">
-            <div class="flex flex-wrap items-center gap-3">
-              <span class="font-bold" style="color: var(--accent)">Арт:</span>
-              <label class="flex items-center gap-1">
-                Размер:
-                <input type="range" id="mbSizeSlider" min="80" max="360" value="160" oninput="resizeSelectedMoodboardImage(this.value)" />
-              </label>
-              <label class="flex items-center gap-1">
-                Поворот:
-                <input type="range" id="mbRotateSlider" min="-30" max="30" value="0" oninput="rotateSelectedMoodboardImage(this.value)" />
-              </label>
-              <button type="button" onclick="openCropModalForSelected()" class="btn-accent px-2.5 py-1 rounded-lg font-bold">
-                ✂️ Обрезать
-              </button>
-            </div>
-            <button type="button" onclick="deleteSelectedMoodboardImage()" class="px-2.5 py-1 rounded-lg bg-red-600/80 text-white font-bold">
-              🗑️ Удалить
-            </button>
-          </div>
+          <!-- Панель 1: Выбор цвета листа + Режимы (Двигать / Кисть / Фломастер / Спрей / Ластик) -->
+          <div class="theme-card rounded-2xl p-2.5 space-y-2.5 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <!-- Цвет листа-основы -->
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold opacity-80">📄 Лист:</span>
+                <button type="button" onclick="setMoodboardPaper('theme')" class="w-6 h-6 rounded-full border-2 border-purple-400 bg-purple-950" title="В цвет темы"></button>
+                <button type="button" onclick="setMoodboardPaper('#ffffff')" class="w-6 h-6 rounded-full border border-gray-400 bg-white" title="Белый лист"></button>
+                <button type="button" onclick="setMoodboardPaper('#f5ebe0')" class="w-6 h-6 rounded-full border border-amber-700/40" style="background:#f5ebe0" title="Крафт / Пергамент"></button>
+                <button type="button" onclick="setMoodboardPaper('#fce7f3')" class="w-6 h-6 rounded-full border border-pink-400" style="background:#fce7f3" title="Розовый зефир"></button>
+                <button type="button" onclick="setMoodboardPaper('#ede9fe')" class="w-6 h-6 rounded-full border border-purple-400" style="background:#ede9fe" title="Нежная лаванда"></button>
+                <button type="button" onclick="setMoodboardPaper('#111115')" class="w-6 h-6 rounded-full border border-gray-600 bg-black" title="Чёрный графит"></button>
+                <input type="color" onchange="setMoodboardPaper(this.value)" value="#ffffff" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0" title="Любой свой цвет листа" />
+              </div>
 
-          <!-- Freeform Drag & Drop Board -->
-          <div id="moodboardCanvas" class="moodboard-canvas" onclick="deselectMoodboardImage(event)">
-            <div id="moodboardEmptyHint" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-4" style="color: var(--text-muted)">
-              <span class="text-2xl mb-1">✨🖼️✨</span>
-              <span class="text-xs">Свободная доска визуализации к книге.<br/>Нажми «Вставить арт на доску» выше!</span>
+              <!-- Инструменты: Двигать или Рисовать -->
+              <div class="flex flex-wrap items-center gap-1">
+                <button type="button" onclick="setMoodboardTool('move')" id="mbTool-move" class="px-2.5 py-1 rounded-xl font-bold btn-accent">
+                  ✋ Двигать
+                </button>
+                <button type="button" onclick="setMoodboardTool('brush')" id="mbTool-brush" class="px-2.5 py-1 rounded-xl font-semibold btn-soft">
+                  🖌️ Кисть
+                </button>
+                <button type="button" onclick="setMoodboardTool('marker')" id="mbTool-marker" class="px-2.5 py-1 rounded-xl font-semibold btn-soft">
+                  🖍️ Маркер
+                </button>
+                <button type="button" onclick="setMoodboardTool('spray')" id="mbTool-spray" class="px-2.5 py-1 rounded-xl font-semibold btn-soft">
+                  💨 Спрей
+                </button>
+                <button type="button" onclick="setMoodboardTool('eraser')" id="mbTool-eraser" class="px-2.5 py-1 rounded-xl font-semibold btn-soft">
+                  🧽 Ластик
+                </button>
+              </div>
+            </div>
+
+            <!-- Панель настроек кисти/спрея (показывается, когда выбран режим рисования) -->
+            <div id="mbDrawControls" class="hidden flex flex-wrap items-center justify-between gap-2 pt-2 border-t" style="border-color: var(--border-color)">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="font-bold">🎨 Цвет:</span>
+                <button type="button" onclick="setMbBrushColor('#ef4444')" class="w-5 h-5 rounded-full bg-red-500 border border-white/40"></button>
+                <button type="button" onclick="setMbBrushColor('#f472b6')" class="w-5 h-5 rounded-full bg-pink-400 border border-white/40"></button>
+                <button type="button" onclick="setMbBrushColor('#a855f7')" class="w-5 h-5 rounded-full bg-purple-500 border border-white/40"></button>
+                <button type="button" onclick="setMbBrushColor('#38bdf8')" class="w-5 h-5 rounded-full bg-sky-400 border border-white/40"></button>
+                <button type="button" onclick="setMbBrushColor('#10b981')" class="w-5 h-5 rounded-full bg-emerald-500 border border-white/40"></button>
+                <button type="button" onclick="setMbBrushColor('#fbbf24')" class="w-5 h-5 rounded-full bg-amber-400 border border-white/40"></button>
+                <button type="button" onclick="setMbBrushColor('#111827')" class="w-5 h-5 rounded-full bg-gray-900 border border-white/60"></button>
+                <button type="button" onclick="setMbBrushColor('#ffffff')" class="w-5 h-5 rounded-full bg-white border border-gray-400"></button>
+                <input type="color" id="mbBrushColorPicker" value="#ef4444" oninput="setMbBrushColor(this.value)" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0" />
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="flex items-center gap-1 font-semibold">
+                  Толщина: <span id="mbBrushSizeVal">8</span>
+                  <input type="range" id="mbBrushSize" min="2" max="42" value="8" oninput="document.getElementById('mbBrushSizeVal').textContent=this.value" class="w-20" />
+                </label>
+                <button type="button" onclick="clearMoodboardDrawing()" class="px-2 py-1 rounded-lg bg-red-600/25 text-red-300 border border-red-500/30 font-bold">
+                  🧹 Очистить рисунок
+                </button>
+              </div>
+            </div>
+
+            <!-- Раскрывашка с Эмодзи-стикерами -->
+            <div id="mbEmojiPickerBar" class="hidden pt-2 border-t space-y-2" style="border-color: var(--border-color)">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="font-bold" style="color: var(--accent)">Нажми на эмодзи, чтобы приклеить на доску:</span>
+                <div class="flex items-center gap-1">
+                  <input type="text" id="mbCustomEmojiInput" placeholder="Любой с клавиатуры..." class="theme-input rounded-lg px-2 py-1 text-xs w-36" />
+                  <button type="button" onclick="addCustomEmojiFromInput()" class="btn-accent px-2.5 py-1 rounded-lg font-bold">＋ Приклеить</button>
+                </div>
+              </div>
+              <div id="mbQuickEmojisList" class="flex flex-wrap gap-1.5 text-lg select-none"></div>
             </div>
           </div>
-        </div>
+          
 
         <!-- SECTION E: ЗАМЕТКИ К КНИГЕ С КОТАМИ -->
         <div class="theme-card-secondary rounded-2xl p-3.5 space-y-3.5">
