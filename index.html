@@ -1016,8 +1016,37 @@
       </div>
 
       <div class="p-3.5 sm:p-6 space-y-5 max-h-[84vh] overflow-y-auto">
+
+        <!-- ПАНЕЛЬ ПОИСКА ПО ISBN И СКАНЕР ШТРИХКОДА КАМЕРОЙ -->
+        <div class="theme-card-secondary rounded-2xl p-3 space-y-2.5 border" style="border-color: var(--border-color)">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="font-bold flex items-center gap-1.5" style="color: var(--accent)">
+              <span>📷 Автозаполнение по ISBN (штрихкоду) или названию:</span>
+            </div>
+            <span id="isbnSearchStatus" class="text-[11px] font-semibold" style="color: var(--text-muted)">Введи код или наведи камеру</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <input type="text" id="isbnInput" placeholder="Например: 9785171189624 или название книги..." class="theme-input flex-1 min-w-[180px] rounded-xl px-3 py-2 font-bold" />
+            <button type="button" onclick="searchBookByIsbn()" class="btn-accent px-3.5 py-2 rounded-xl font-bold shadow flex items-center gap-1">
+              🔍 Найти
+            </button>
+            <button type="button" onclick="toggleIsbnCamera()" id="isbnCameraBtn" class="btn-soft px-3 py-2 rounded-xl font-bold flex items-center gap-1">
+              📷 Камера
+            </button>
+          </div>
+          <!-- Окошко видеокамеры (появляется только при сканировании) -->
+          <div id="isbnCameraBox" class="hidden relative rounded-2xl overflow-hidden bg-black max-w-sm mx-auto border-2" style="border-color: var(--accent)">
+            <video id="isbnVideo" class="w-full h-48 object-cover" playsinline muted></video>
+            <div class="absolute inset-x-6 top-1/2 h-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-pulse pointer-events-none"></div>
+            <button type="button" onclick="stopIsbnCamera()" class="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/75 text-white text-[11px] font-bold">
+              ✕ Закрыть камеру
+            </button>
+          </div>
+        </div>
+
         <!-- SECTION A: Cover + Metadata + Series + Progress + Purchase/Piracy -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+          
           
           <!-- Left: Book Cover Preview & Upload -->
           <div class="md:col-span-3 flex flex-col items-center space-y-2.5">
