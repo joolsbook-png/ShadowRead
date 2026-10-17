@@ -393,19 +393,22 @@
         </div>
       </div>
 
-      <!-- Second Row: ЯРКИЕ ВЫДЕЛЕННЫЕ РАЗДЕЛЫ НАВИГАЦИИ -->
-      <nav class="main-nav-bar grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1.5 rounded-2xl">
-        <button onclick="switchMainView('library')" id="nav-library" class="nav-tab nav-tab-active px-3 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
+      <!-- Second Row: ЯРКИЕ ВЫДЕЛЕННЫЕ РАЗДЕЛЫ НАВИГАЦИИ (5 ВКЛАДОК) -->
+      <nav class="main-nav-bar grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 p-1.5 rounded-2xl">
+        <button onclick="switchMainView('library')" id="nav-library" class="nav-tab nav-tab-active px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
           📚 <span>Библиотека</span>
         </button>
-        <button onclick="switchMainView('calendar')" id="nav-calendar" class="nav-tab nav-tab-inactive px-3 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
-          📅 <span>Календарь и Трекер</span>
+        <button onclick="switchMainView('calendar')" id="nav-calendar" class="nav-tab nav-tab-inactive px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
+          📅 <span>Календарь</span>
         </button>
-        <button onclick="switchMainView('wrapup')" id="nav-wrapup" class="nav-tab nav-tab-inactive px-3 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
+        <button onclick="switchMainView('wrapup')" id="nav-wrapup" class="nav-tab nav-tab-inactive px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
           🖼️ <span>Итоги месяца</span>
         </button>
-        <button onclick="switchMainView('stats')" id="nav-stats" class="nav-tab nav-tab-inactive px-3 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
-          📊 <span>Статистика и Траты</span>
+        <button onclick="switchMainView('stats')" id="nav-stats" class="nav-tab nav-tab-inactive px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
+          📊 <span>Статистика</span>
+        </button>
+        <button onclick="switchMainView('achievements')" id="nav-achievements" class="nav-tab nav-tab-inactive col-span-2 sm:col-span-1 px-2.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5">
+          🏆 <span>Ачивки</span>
         </button>
       </nav>
 
@@ -429,13 +432,14 @@
 
           <div class="text-center sm:text-left space-y-1.5 max-w-xl">
             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <span class="text-[11px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-lg" style="background: var(--accent-soft); color: var(--accent)">
-                Хранитель Архива • Книжная Тень
+              <span id="catEvolutionRankBadge" onclick="switchMainView('achievements')" class="text-[11px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-lg cursor-pointer hover:opacity-85 transition" style="background: var(--accent-soft); color: var(--accent)" title="Нажми, чтобы открыть Зал Достижений">
+                🐾 Титул: Котёнок из чернил
               </span>
               <span id="catTodayStats" class="text-xs font-bold" style="color: var(--text-muted)">
                 Сегодня скормлено: 0 стр.
               </span>
             </div>
+            
             <p id="catSpeechText" class="text-xs sm:text-sm font-medium leading-snug italic">
               «Хозяйка, я буквально растворяюсь в пустоте... Покорми меня буквами!»
             </p>
