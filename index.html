@@ -5306,7 +5306,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
 
     let lastFoundCandidates = [];
 
-    async function fetchWithTimeout(url, ms = 4500) {
+    async function fetchWithTimeout(url, ms = 4000) {
       const ctrl = new AbortController();
       const id = setTimeout(() => ctrl.abort(), ms);
       try {
@@ -5319,14 +5319,34 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
     }
 
-    // 1. Поиск в русском каталоге ЛитРес (через CORS-мост)
+    // Пробивной запрос через 3 разных CORS-моста по очереди
+    async function fetchViaMultiProxy(targetUrl) {
+      const proxies = [
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+      ];
+      for (const pUrl of proxies) {
+        try {
+          const res = await fetchWithTimeout(pUrl, 3800);
+          if (res.ok) {
+            const txt = await res.text();
+            if (txt && txt.length > 15 && !txt.includes('Access Denied') && !txt.includes('403 Forbidden')) {
+              return txt;
+            }
+          }
+        } catch (e) {}
+      }
+      return null;
+    }
+
+    // 1. Каталог ЛитРес (через каскад из 3 мостов)
     async function searchLitresCatalog(query) {
       try {
-        const target = `https://api.litres.ru/foundation/api/search?q=${encodeURIComponent(query)}&art_types=text_book&limit=5`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
-        const res = await fetchWithTimeout(proxyUrl, 5000);
-        if (!res.ok) return [];
-        const json = await res.json();
+        const target = `https://api.litres.ru/foundation/api/search?q=${encodeURIComponent(query)}&art_types=text_book&limit=6`;
+        const rawText = await fetchViaMultiProxy(target);
+        if (!rawText) return [];
+        const json = JSON.parse(rawText);
         const items = json?.payload?.data || [];
         return items.map(it => {
           const inst = it.instance || it;
@@ -5354,16 +5374,16 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
     }
 
-    // 2. Поиск в Apple Books (отлично ищет на русском + даёт шикарные обложки и аннотации!)
-    async function searchAppleBooksCatalog(query) {
+    // 2. Прямой русский каталог Apple (Аудиокниги РФ — работает БЕЗ прокси и отдаёт русские книги!)
+    async function searchAppleRussianCatalog(query) {
       try {
-        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=ebook&country=RU&limit=5`;
-        const res = await fetchWithTimeout(url, 4200);
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=audiobook&entity=audiobook&country=RU&limit=6`;
+        const res = await fetchWithTimeout(url, 4000);
         if (!res.ok) return [];
         const data = await res.json();
         return (data.results || []).map(r => ({
-          source: 'Apple Books 🍎',
-          title: String(r.trackName || '').trim(),
+          source: 'Apple Книги 🇷🇺',
+          title: String(r.collectionName || r.trackName || '').replace(/\(Unabridged\)|[Аудиокнига]/gi, '').trim(),
           author: String(r.artistName || 'Неизвестный автор').trim(),
           pages: 0,
           annotation: String(r.description || '').replace(/<[^>]+>/g, '').trim(),
@@ -5375,22 +5395,42 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
     }
 
-    // 3. Поиск в Google Books
+    // 3. Прямой поиск OpenLibrary Search API (работает без прокси, знает Джея Кристоффа, классику и ISBN)
+    async function searchOpenLibraryDirect(query) {
+      try {
+        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=6`;
+        const res = await fetchWithTimeout(url, 4500);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.docs || []).map(d => ({
+          source: 'OpenLibrary 📚',
+          title: String(d.title || '').trim(),
+          author: (d.author_name || []).join(', ') || 'Неизвестный автор',
+          pages: Number(d.number_of_pages_median || 0) || 0,
+          annotation: '',
+          cover: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : '',
+          series: ''
+        })).filter(x => x.title);
+      } catch (e) {
+        return [];
+      }
+    }
+        // 4. Поиск в Google Books
     async function searchGoogleBooksCatalog(query, isIsbn = false) {
       try {
         const qParam = isIsbn ? `isbn:${query}` : query;
-        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(qParam)}&langRestrict=ru&maxResults=5`;
-        let res = await fetchWithTimeout(url, 4200);
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(qParam)}&maxResults=5`;
+        let res = await fetchWithTimeout(url, 3800);
         let data = res.ok ? await res.json() : null;
-        if (!data?.items?.length) {
-          const res2 = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`, 4200);
+        if (!data?.items?.length && isIsbn) {
+          const res2 = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`, 3800);
           if (res2.ok) data = await res2.json();
         }
         return (data?.items || []).map(it => {
           const v = it.volumeInfo || {};
           const rawImg = v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || '';
           return {
-            source: 'Google Books 🌍',
+            source: 'Google 🌍',
             title: String(v.title || '').trim(),
             author: (v.authors || []).join(', ') || 'Неизвестный автор',
             pages: Number(v.pageCount || 0) || 0,
@@ -5403,24 +5443,24 @@ async function saveBookFromModal(openTrackerAfter = false) {
         return [];
       }
     }
-        // 4. Если отсканирован бумажный ISBN РФ (978-5-...), вытаскиваем название книги из Читай-Города/поиска
+
+    // 5. Расшифровка российского бумажного штрихкода (978-5-...) через поисковик
     async function resolveRussianIsbnToTitle(isbnDigits) {
       try {
-        const htmlUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(isbnDigits + ' книга')}`;
-        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(htmlUrl)}`;
-        const res = await fetchWithTimeout(proxy, 4500);
-        if (!res.ok) return '';
-        const text = await res.text();
+        const htmlUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(isbnDigits)}`;
+        const text = await fetchViaMultiProxy(htmlUrl);
+        if (!text) return '';
         const doc = new DOMParser().parseFromString(text, 'text/html');
-        const firstLink = doc.querySelector('.result__a');
-        if (!firstLink) return '';
-        let rawTitle = firstLink.textContent || '';
-        rawTitle = rawTitle
-          .replace(/купить|книга|читай-город|лабиринт|ozon|озон|wildberries|в интернет-магазине|по низкой цене|isbn|[0-9-]{10,17}/gi, '')
-          .replace(/[|—«»"():]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        return rawTitle.slice(0, 75);
+        const links = Array.from(doc.querySelectorAll('.result__a'));
+        for (const a of links) {
+          let t = (a.textContent || '')
+            .replace(/купить|книга|читай-город|лабиринт|ozon|озон|wildberries|буквоед|в интернет-магазине|цена|отзывы|isbn|[0-9-]{9,17}/gi, '')
+            .replace(/[|—«»"():/]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (t.length >= 3) return t.slice(0, 65);
+        }
+        return '';
       } catch (e) {
         return '';
       }
@@ -5437,43 +5477,43 @@ async function saveBookFromModal(openTrackerAfter = false) {
 
       const cleanDigits = raw.replace(/[^0-9Xx]/g, '');
       const isIsbn = cleanDigits.length === 10 || cleanDigits.length === 13;
-      statusEl.textContent = '⏳ Опрашиваю ЛитРес, Apple Books и Google...';
+      statusEl.textContent = '⏳ Пробиваю по ЛитРес, Apple RU, Google и OpenLibrary...';
       listEl.classList.add('hidden');
       listEl.innerHTML = '';
 
       try {
-        let queryToUse = isIsbn ? cleanDigits : raw;
+        const queryToUse = isIsbn ? cleanDigits : raw;
 
-        // Запускаем параллельный поиск сразу во всех базах!
-        let [litresRes, appleRes, googleRes] = await Promise.all([
+        let [litresRes, appleRes, googleRes, olRes] = await Promise.all([
           searchLitresCatalog(queryToUse),
-          searchAppleBooksCatalog(queryToUse),
-          searchGoogleBooksCatalog(queryToUse, isIsbn)
+          searchAppleRussianCatalog(queryToUse),
+          searchGoogleBooksCatalog(queryToUse, isIsbn),
+          searchOpenLibraryDirect(queryToUse)
         ]);
 
-        let combined = [...litresRes, ...appleRes, ...googleRes];
+        let combined = [...litresRes, ...appleRes, ...googleRes, ...olRes];
 
-        // Если это бумажный русский ISBN и прямым числом его нет в электронных базах —
-        // расшифровываем название по ISBN и тут же ищем книгу по названию!
+        // Если это бумажный русский штрихкод (9785...), которого нет по цифрам — узнаём его название и ищем повторно!
         if (combined.length === 0 && isIsbn) {
-          statusEl.textContent = '🕵️‍♀️ Расшифровываю бумажный штрихкод РФ...';
+          statusEl.textContent = '🕵️‍♀️ Расшифровываю бумажный ISBN РФ...';
           const guessedTitle = await resolveRussianIsbnToTitle(cleanDigits);
           if (guessedTitle) {
-            const [l2, a2, g2] = await Promise.all([
+            statusEl.textContent = `🔍 Нашла код: «${guessedTitle.slice(0, 28)}...», гружу обложки!`;
+            const [l2, a2, g2, o2] = await Promise.all([
               searchLitresCatalog(guessedTitle),
-              searchAppleBooksCatalog(guessedTitle),
-              searchGoogleBooksCatalog(guessedTitle, false)
+              searchAppleRussianCatalog(guessedTitle),
+              searchGoogleBooksCatalog(guessedTitle, false),
+              searchOpenLibraryDirect(guessedTitle)
             ]);
-            combined = [...l2, ...a2, ...g2];
+            combined = [...l2, ...a2, ...g2, ...o2];
           }
         }
 
         if (combined.length === 0) {
-          statusEl.textContent = '😿 По коду не нашлось — впиши название словами и жми «Найти»!';
+          statusEl.textContent = '😿 По штрихкоду книга не найдена — впиши её название буквами!';
           return;
         }
 
-        // Убираем полные дубликаты и показываем до 6 лучших карточек
         const unique = [];
         const seen = new Set();
         for (const item of combined) {
@@ -5483,12 +5523,10 @@ async function saveBookFromModal(openTrackerAfter = false) {
             unique.push(item);
           }
         }
-        lastFoundCandidates = unique.slice(0, 6);
+        lastFoundCandidates = unique.slice(0, 8);
 
-        // Сразу подставляем первый самый точный результат в поля карточки
         applyFoundBookCandidate(0, false);
 
-        // И открываем красивую витрину вариантов, если вдруг нужно другое издание/обложка
         listEl.innerHTML = lastFoundCandidates.map((c, idx) => `
           <div onclick="applyFoundBookCandidate(${idx}, true)"
                class="theme-card rounded-xl p-2 flex items-center justify-between gap-2.5 cursor-pointer hover:border-purple-400 transition text-xs">
@@ -5514,12 +5552,12 @@ async function saveBookFromModal(openTrackerAfter = false) {
         listEl.classList.remove('hidden');
 
         if (typeof playSound === 'function') playSound('bloop');
-        statusEl.textContent = `✅ Найдено вариантов: ${lastFoundCandidates.length} (выбери лучший ниже!)`;
+        statusEl.textContent = `✅ Найдено: ${lastFoundCandidates.length} шт. (ЛитРес: ${litresRes.length}, Apple RU: ${appleRes.length}, OL/Google: ${olRes.length + googleRes.length})`;
       } catch (err) {
         statusEl.textContent = '⚠️ Ошибка сети при поиске.';
       }
     }
-
+    
     function applyFoundBookCandidate(idx, closeListAfter = true) {
       const c = lastFoundCandidates[idx];
       if (!c) return;
