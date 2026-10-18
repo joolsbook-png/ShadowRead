@@ -2666,11 +2666,30 @@ const ACQ_META = {
     }
 
     function renderQuickFilterPills() {
+      // 1. Полоска фильтра по ЖАНРАМ
+      const genreBox = document.getElementById('quickGenreFilterPills');
+      if (genreBox) {
+        const gCounts = getGenreUsageCounts();
+        const sortedGenres = getSmartSortedGenres(state.activeGenreFilter ? [state.activeGenreFilter] : []);
+        let gHtml = `<button onclick="setGenreFilter(null)" class="px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition ${!state.activeGenreFilter ? 'btn-accent' : 'btn-soft'}">🎭 Все жанры</button>`;
+        sortedGenres.forEach(g => {
+          const isActive = state.activeGenreFilter === g;
+          const cnt = gCounts[g] || 0;
+          gHtml += `<button onclick="setGenreFilter('${escapeHtmlAttr(g)}')"
+            class="px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition flex items-center gap-1 ${isActive ? 'btn-accent shadow' : 'btn-soft'} ${cnt === 0 && !isActive ? 'opacity-50' : ''}">
+            ${escapeHtml(g)}
+            ${cnt > 0 ? `<span class="text-[10px] opacity-80">(${cnt})</span>` : ''}
+          </button>`;
+        });
+        genreBox.innerHTML = gHtml;
+      }
+
+      // 2. Полоска фильтра по ТЕГАМ
       const container = document.getElementById('quickFilterPills');
       const counts = getTagUsageCounts();
       const sortedTags = getSmartSortedTags(state.activeTagFilter ? [state.activeTagFilter] : []);
 
-      let html = `<button onclick="setTagFilter(null)" class="px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition ${!state.activeTagFilter ? 'btn-accent' : 'btn-soft'}">Все теги</button>`;
+      let html = `<button onclick="setTagFilter(null)" class="px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition ${!state.activeTagFilter ? 'btn-accent' : 'btn-soft'}">🏷️ Все теги</button>`;
       sortedTags.forEach(t => {
         const isActive = state.activeTagFilter === t.name;
         const cnt = counts[t.name] || 0;
@@ -2685,8 +2704,16 @@ const ACQ_META = {
       container.innerHTML = html;
     }
 
+    function setGenreFilter(genreName) {
+      state.activeGenreFilter = state.activeGenreFilter === genreName ? null : genreName;
+      if (typeof playSound === 'function') playSound('tab');
+      renderQuickFilterPills();
+      renderLibrary();
+    }
+
     function setTagFilter(tagName) {
-      state.activeTagFilter = tagName;
+      state.activeTagFilter = state.activeTagFilter === tagName ? null : tagName;
+      if (typeof playSound === 'function') playSound('tab');
       renderQuickFilterPills();
       renderLibrary();
     }
@@ -2703,7 +2730,9 @@ const ACQ_META = {
         if (state.shelfFilter === 'plan' && b.status !== 'plan') return false;
         if (state.shelfFilter === 'fav' && !b.favorite) return false;
         if (state.shelfFilter === 'collections' && !(b.series && b.series.trim())) return false;
+        if (state.activeGenreFilter && !(b.genres || []).includes(state.activeGenreFilter)) return false;
         if (state.activeTagFilter && !(b.tags || []).includes(state.activeTagFilter)) return false;
+        
 
         if (query) {
           const hay = `${b.title} ${b.author} ${b.series || ''} ${(b.tags || []).join(' ')} ${(b.genres || []).join(' ')}`.toLowerCase();
