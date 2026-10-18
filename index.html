@@ -5610,15 +5610,17 @@ async function saveBookFromModal(openTrackerAfter = false) {
 
         lastFoundCandidates = allMerged.slice(0, 14);
 
-        // Для первых 4 карточек в списке, если страниц всё ещё нет, быстро догружаем их по названию книги
+        // Догружаем страницы для первых 4 кандидатов, но НИЧЕГО не вставляем в карточку без твоего клика!
         await Promise.all(lastFoundCandidates.slice(0, 4).map(c => fetchMissingPagesForCandidate(c)));
 
-        await applyFoundBookCandidate(0, false);
-
-        listEl.innerHTML = lastFoundCandidates.map((c, idx) => `
-          <div onclick="applyFoundBookCandidate(${idx}, true)"
-               class="theme-card rounded-xl p-2 flex items-center justify-between gap-2.5 cursor-pointer hover:border-purple-400 transition text-xs">
-            <div class="flex items-center gap-2.5 min-w-0">
+        listEl.innerHTML = `
+          <div class="flex items-center justify-between text-[11px] pb-1">
+            <span class="font-bold" style="color: var(--accent)">👇 Выбери нужную книгу (или возьми только её обложку):</span>
+            <button type="button" onclick="document.getElementById('isbnResultsList').classList.add('hidden')" class="btn-soft px-2 py-0.5 rounded-lg font-bold">✕ Свернуть</button>
+          </div>
+        ` + lastFoundCandidates.map((c, idx) => `
+          <div class="theme-card rounded-xl p-2 flex items-center justify-between gap-2 transition text-xs">
+            <div onclick="applyFoundBookCandidate(${idx}, true)" class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
               ${c.cover
                 ? `<img src="${c.cover}" onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src=this.src.replace('data.fantlab.ru','fantlab.ru');}" class="w-9 h-13 object-cover rounded-lg flex-shrink-0 bg-black/40" />`
                 : `<div class="w-9 h-13 rounded-lg bg-purple-950/60 flex items-center justify-center text-sm flex-shrink-0">📕</div>`}
@@ -5633,20 +5635,22 @@ async function saveBookFromModal(openTrackerAfter = false) {
                 </div>
               </div>
             </div>
-            <button type="button" class="btn-accent px-2.5 py-1 rounded-lg text-[10px] font-bold flex-shrink-0">
-              Выбрать
-            </button>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              ${c.cover ? `<button type="button" onclick="selectCoverFromGallery('${escapeHtmlAttr(c.cover)}')" class="btn-soft px-2 py-1 rounded-lg text-[10px] font-bold" title="Взять только обложку, не меняя текст">🖼️ Обложку</button>` : ''}
+              <button type="button" onclick="applyFoundBookCandidate(${idx}, true)" class="btn-accent px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                📥 Всё
+              </button>
+            </div>
           </div>
         `).join('');
         listEl.classList.remove('hidden');
 
         if (typeof playSound === 'function') playSound('bloop');
-        statusEl.textContent = `✅ Найдено: ${lastFoundCandidates.length} кн. (ЛитРес/Apple: ${appleLitresRes.length}, FantLab: ${flRes.length}, Google: ${gRes.length})`;
+        statusEl.textContent = `✅ Найдено: ${lastFoundCandidates.length} кн. Выбери нужную ниже!`;
       } catch (err) {
         statusEl.textContent = '⚠️ Ошибка соединения при поиске.';
       }
-                                         }
-    
+    }
 
     async function searchCoversOnly() {
       const q = (document.getElementById('isbnInput').value || document.getElementById('modalTitle').value || '').trim();
@@ -5682,7 +5686,10 @@ async function saveBookFromModal(openTrackerAfter = false) {
         }
 
         listEl.innerHTML = `
-          <div class="text-[11px] font-bold mb-1.5" style="color: var(--accent)">🖼️ Нажми на любую обложку, чтобы надеть её на книгу:</div>
+          <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
+            <span style="color: var(--accent)">🖼️ Нажми на любую обложку, чтобы надеть её на книгу:</span>
+            <button type="button" onclick="document.getElementById('isbnResultsList').classList.add('hidden')" class="btn-soft px-2 py-0.5 rounded-lg font-bold">✕ Свернуть</button>
+          </div>
           <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
             ${covers.slice(0, 18).map(c => `
               <div onclick="selectCoverFromGallery('${escapeHtmlAttr(c.url)}')" class="cursor-pointer group text-center">
@@ -5712,8 +5719,11 @@ async function saveBookFromModal(openTrackerAfter = false) {
       };
       prev.src = url;
       if (typeof playSound === 'function') playSound('bloop');
-      document.getElementById('isbnSearchStatus').textContent = '✨ Обложка успешно установлена!';
+      // Автоматически сворачиваем галерею обложек после выбора!
+      document.getElementById('isbnResultsList').classList.add('hidden');
+      document.getElementById('isbnSearchStatus').textContent = '✨ Обложка установлена, список свёрнут!';
     }
+    
 
     async function applyFoundBookCandidate(idx, closeListAfter = true) {
       const c = lastFoundCandidates[idx];
