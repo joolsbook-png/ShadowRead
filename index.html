@@ -1204,14 +1204,17 @@
 
         <!-- SECTION B: ЖАНРЫ И ЦВЕТНЫЕ ТЕГИ -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <!-- SECTION B: ЖАНРЫ И ЦВЕТНЫЕ ТЕГИ (С ЖИВЫМ ПОИСКОМ ПО БУКВАМ) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2.5">
             <div class="flex items-center justify-between">
               <label class="font-bold text-sm">🎭 Жанры книги</label>
-              <span class="text-[10px]" style="color: var(--text-muted)">Выбранные сверху ↑</span>
+              <span class="text-[10px]" style="color: var(--text-muted)">Начни печатать ниже для поиска ↓</span>
             </div>
             <div id="modalGenresList" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1"></div>
-            <div class="flex gap-2 pt-1">
-              <input type="text" id="newGenreInput" placeholder="Добавить свой жанр..." class="theme-input flex-1 rounded-xl px-3 py-1.5" />
+            <div class="flex gap-1.5 pt-1">
+              <input type="text" id="newGenreInput" oninput="renderModalGenresAndTags()" placeholder="Поиск или новый жанр..." class="theme-input flex-1 rounded-xl px-3 py-1.5" />
+              <button type="button" onclick="document.getElementById('newGenreInput').value=''; renderModalGenresAndTags();" class="btn-soft px-2 py-1.5 rounded-xl font-bold" title="Очистить строку">✕</button>
               <button type="button" onclick="addCustomGenreFromModal()" class="btn-soft px-3 py-1.5 rounded-xl font-bold">＋ Жанр</button>
             </div>
           </div>
@@ -1219,16 +1222,18 @@
           <div class="theme-card-secondary rounded-2xl p-3.5 space-y-2.5">
             <div class="flex items-center justify-between">
               <label class="font-bold text-sm">🏷️ Цветные теги и тропы</label>
-              <span class="text-[10px]" style="color: var(--text-muted)">Применённые сверху ↑</span>
+              <span class="text-[10px]" style="color: var(--text-muted)">Начни печатать ниже для поиска ↓</span>
             </div>
             <div id="modalTagsList" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1"></div>
-            <div class="flex items-center gap-2 pt-1">
-              <input type="text" id="newTagInput" placeholder="Новый тег..." class="theme-input flex-1 rounded-xl px-3 py-1.5" />
-              <input type="color" id="newTagColor" value="#a855f7" class="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0" />
-              <button type="button" onclick="addCustomTagFromModal()" class="btn-soft px-3 py-1.5 rounded-xl font-bold">＋ Тег</button>
+            <div class="flex items-center gap-1.5 pt-1">
+              <input type="text" id="newTagInput" oninput="renderModalGenresAndTags()" placeholder="Пиши (напр. стал...) или создай..." class="theme-input flex-1 rounded-xl px-3 py-1.5" />
+              <button type="button" onclick="document.getElementById('newTagInput').value=''; renderModalGenresAndTags();" class="btn-soft px-2 py-1.5 rounded-xl font-bold" title="Очистить строку">✕</button>
+              <input type="color" id="newTagColor" value="#a855f7" class="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 flex-shrink-0" />
+              <button type="button" onclick="addCustomTagFromModal()" class="btn-soft px-3 py-1.5 rounded-xl font-bold flex-shrink-0">＋ Тег</button>
             </div>
           </div>
         </div>
+          
 
         <!-- SECTION C: ЛЮБИМЫЕ И НЕЛЮБИМЫЕ ПЕРСОНАЖИ -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
