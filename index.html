@@ -1027,13 +1027,17 @@
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs">
             <input type="text" id="isbnInput" placeholder="Например: 9785171189624 или название книги..." class="theme-input flex-1 min-w-[180px] rounded-xl px-3 py-2 font-bold" />
-            <button type="button" onclick="searchBookByIsbn()" class="btn-accent px-3.5 py-2 rounded-xl font-bold shadow flex items-center gap-1">
-              🔍 Найти
+            <button type="button" onclick="searchBookByIsbn()" class="btn-accent px-3 py-2 rounded-xl font-bold shadow flex items-center gap-1">
+              🔍 Книга
+            </button>
+            <button type="button" onclick="searchCoversOnly()" class="btn-soft px-3 py-2 rounded-xl font-bold flex items-center gap-1" title="Найти и выбрать только обложку по названию">
+              🖼️ Обложки
             </button>
             <button type="button" onclick="toggleIsbnCamera()" id="isbnCameraBtn" class="btn-soft px-3 py-2 rounded-xl font-bold flex items-center gap-1">
-              📷 Камера
+              📷 ISBN
             </button>
           </div>
+          
           <!-- Окошко видеокамеры (появляется только при сканировании) -->
           <div id="isbnCameraBox" class="hidden relative rounded-2xl overflow-hidden bg-black max-w-sm mx-auto border-2" style="border-color: var(--accent)">
             <video id="isbnVideo" class="w-full h-48 object-cover" playsinline muted></video>
