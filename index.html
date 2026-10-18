@@ -5670,13 +5670,12 @@ async function saveBookFromModal(openTrackerAfter = false) {
       const c = lastFoundCandidates[idx];
       if (!c) return;
 
-      // При клике на книгу из FantLab — мгновенно догружаем её страницы, серию и полную аннотацию!
       if (c.editionId && (!c.pages || !c.annotation)) {
         try {
           const r = await fetchWithTimeout(`https://api.fantlab.ru/edition/${c.editionId}`, 3200);
           if (r.ok) {
             const ed = await r.json();
-            if (!c.pages && ed.pages) c.pages = Number(ed.pages) || 0;
+            if (!c.pages && ed.pages) c.pages = parsePagesCount(ed.pages);
             if (!c.annotation && ed.description) {
               c.annotation = String(ed.description).replace(/<[^>]+>/g, '').replace(/\[[^\]]+\]/g, '').trim();
             }
@@ -5696,18 +5695,21 @@ async function saveBookFromModal(openTrackerAfter = false) {
             if (!c.series && w.parents?.cycles?.length) {
               c.series = String(w.parents.cycles[0].rusname || w.parents.cycles[0].name || '').trim();
             }
-            if (!c.pages && w.editions_blocks) {
-              const blocks = Array.isArray(w.editions_blocks) ? w.editions_blocks : Object.values(w.editions_blocks);
-              for (const b of blocks) {
-                const list = b?.list || (Array.isArray(b) ? b : []);
-                for (const ed of list) {
-                  if (ed.pages && Number(ed.pages) > 0) { c.pages = Number(ed.pages); break; }
-                }
-                if (c.pages) break;
+            if (!c.pages && (w.pic_edition_id || w.pic_edition_id_auto)) {
+              const edId = w.pic_edition_id || w.pic_edition_id_auto;
+              const rEd = await fetchWithTimeout(`https://api.fantlab.ru/edition/${edId}`, 2800).catch(() => null);
+              if (rEd && rEd.ok) {
+                const edObj = await rEd.json();
+                if (edObj.pages) c.pages = parsePagesCount(edObj.pages);
               }
             }
           }
         } catch (e) {}
+      }
+
+      // Если книга из ЛитРес/Apple и страниц у неё ещё нет — быстро ищем страницы в бумажных базах по её названию
+      if (!c.pages) {
+        await fetchMissingPagesForCandidate(c);
       }
 
       document.getElementById('modalTitle').value = c.title || '';
@@ -5732,7 +5734,6 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
     }
     
-
     
     // Безопасная отправка файла бэкапа через системное меню Android в APK
     async function shareBackupJsonForApk() {
