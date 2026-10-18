@@ -3392,22 +3392,31 @@ const ACQ_META = {
     }
 
     function renderModalGenresAndTags() {
-      const genreCounts = getGenreUsageCounts();
-      const sortedGenres = getSmartSortedGenres(modalDraft.genres);
+      const gQuery = (document.getElementById('newGenreInput')?.value || '').trim().toLowerCase().replace(/ё/g, 'е');
+      const tQuery = (document.getElementById('newTagInput')?.value || '').trim().toLowerCase().replace(/ё/g, 'е');
 
-      document.getElementById('modalGenresList').innerHTML = sortedGenres.map(g => {
+      const genreCounts = getGenreUsageCounts();
+      const sortedGenres = getSmartSortedGenres(modalDraft.genres).filter(g => {
+        if (!gQuery) return true;
+        return g.toLowerCase().replace(/ё/g, 'е').includes(gQuery);
+      });
+
+      document.getElementById('modalGenresList').innerHTML = sortedGenres.length ? sortedGenres.map(g => {
         const active = modalDraft.genres.includes(g);
         const usedCnt = genreCounts[g] || 0;
         return `<button type="button" onclick="toggleModalGenre('${escapeHtmlAttr(g)}')"
           class="px-2.5 py-1 rounded-xl text-xs font-semibold transition ${active ? 'btn-accent shadow' : (usedCnt > 0 ? 'btn-soft' : 'btn-soft opacity-50')}">
           ${active ? '✓ ' : ''}${escapeHtml(g)}${usedCnt > 0 && !active ? ` (${usedCnt})` : ''}
         </button>`;
-      }).join('');
+      }).join('') : `<span class="text-[11px] opacity-70 py-1">Совпадений нет — жми «＋ Жанр», чтобы создать его!</span>`;
 
       const tagCounts = getTagUsageCounts();
-      const sortedTags = getSmartSortedTags(modalDraft.tags);
+      const sortedTags = getSmartSortedTags(modalDraft.tags).filter(t => {
+        if (!tQuery) return true;
+        return t.name.toLowerCase().replace(/ё/g, 'е').includes(tQuery);
+      });
 
-      document.getElementById('modalTagsList').innerHTML = sortedTags.map(t => {
+      document.getElementById('modalTagsList').innerHTML = sortedTags.length ? sortedTags.map(t => {
         const active = modalDraft.tags.includes(t.name);
         const usedCnt = tagCounts[t.name] || 0;
         return `<button type="button" onclick="toggleModalTag('${escapeHtmlAttr(t.name)}')"
@@ -3417,20 +3426,25 @@ const ACQ_META = {
           ${active ? '✓ ' : ''}${escapeHtml(t.name)}
           ${usedCnt > 0 && !active ? `<span class="text-[10px] opacity-75">(${usedCnt})</span>` : ''}
         </button>`;
-      }).join('');
+      }).join('') : `<span class="text-[11px] opacity-70 py-1">Такого тега ещё нет — жми «＋ Тег», чтобы добавить!</span>`;
     }
 
     function toggleModalGenre(g) {
       if (modalDraft.genres.includes(g)) modalDraft.genres = modalDraft.genres.filter(x => x !== g);
       else modalDraft.genres.push(g);
+      const inp = document.getElementById('newGenreInput');
+      if (inp && inp.value) inp.value = '';
       renderModalGenresAndTags();
     }
 
     function toggleModalTag(tName) {
       if (modalDraft.tags.includes(tName)) modalDraft.tags = modalDraft.tags.filter(x => x !== tName);
       else modalDraft.tags.push(tName);
+      const inp = document.getElementById('newTagInput');
+      if (inp && inp.value) inp.value = '';
       renderModalGenresAndTags();
     }
+    
 
     async function addCustomGenreFromModal() {
       const inp = document.getElementById('newGenreInput');
