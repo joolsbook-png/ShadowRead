@@ -5312,6 +5312,36 @@ async function saveBookFromModal(openTrackerAfter = false) {
     }
 
     // 2. Прямой Глубокий поиск FantLab (не теряет издания вроде «Ртути» и проверяет варианты имён!)
+    function parsePagesCount(rawVal) {
+      if (!rawVal) return 0;
+      if (typeof rawVal === 'number') return rawVal > 0 ? Math.round(rawVal) : 0;
+      const m = String(rawVal).match(/\d+/);
+      return m ? Number(m[0]) : 0;
+    }
+
+    function normTitleForMatch(t) {
+      return String(t || '')
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(/\(.*?\)|\[.*?\]/g, '')
+        .replace(/[^a-zа-я0-9]/g, '')
+        .slice(0, 26);
+    }
+
+    function normAuthorForMatch(a) {
+      return String(a || '')
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(/кэлли/g, 'калли')
+        .replace(/[^a-zа-я\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1)
+        .sort()
+        .slice(0, 2)
+        .join('_');
+    }
+
+    // 2. Прямой Глубокий поиск FantLab (сразу заглядывает внутрь изданий за страницами!)
     async function searchFantLabDeep(query) {
       const results = [];
       const variants = buildSmartQueryVariants(query);
@@ -5323,11 +5353,10 @@ async function saveBookFromModal(openTrackerAfter = false) {
             fetchWithTimeout(`https://api.fantlab.ru/search-works?q=${encodeURIComponent(qVar)}&page=1&onlymatches=1`, 4800).catch(() => null)
           ]);
 
-          // А) Бумажные издания (тут нашлась обложка «Ртути» и лежат точные страницы!)
           if (edSearchRes && edSearchRes.ok) {
             const edData = await edSearchRes.json();
             const edList = edData?.matches || (Array.isArray(edData) ? edData : []);
-            for (const ed of edList.slice(0, 8)) {
+            for (const ed of edList.slice(0, 7)) {
               const edId = ed.edition_id || ed.id;
               const title = String(ed.name || ed.rusname || '').replace(/<[^>]+>/g, '').trim();
               const author = String(ed.autors || ed.autor_rusname || '').replace(/<[^>]+>/g, '').trim();
@@ -5336,7 +5365,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
                 source: 'FantLab Издание 📕',
                 title,
                 author: author || 'Автор в карточке',
-                pages: Number(ed.pages || 0) || 0,
+                pages: parsePagesCount(ed.pages),
                 annotation: String(ed.description || ed.notes || '').replace(/<[^>]+>/g, '').trim(),
                 cover: makeFantLabCoverUrl(ed.image, edId),
                 series: '',
@@ -5345,11 +5374,10 @@ async function saveBookFromModal(openTrackerAfter = false) {
             }
           }
 
-          // Б) Произведения (с аннотациями и циклами)
           if (wSearchRes && wSearchRes.ok) {
             const wData = await wSearchRes.json();
             const wList = wData?.matches || (Array.isArray(wData) ? wData : []);
-            for (const w of wList.slice(0, 8)) {
+            for (const w of wList.slice(0, 7)) {
               const title = String(w.rusname || w.name || '').trim();
               if (!title) continue;
               const author = String(w.autor_rusname || w.all_autors_rusname || w.autor_name || '').trim();
@@ -5358,7 +5386,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
                 source: 'FantLab 🐉',
                 title,
                 author: author || 'Неизвестный автор',
-                pages: 0,
+                pages: parsePagesCount(w.pages),
                 annotation: String(w.notes || '').replace(/<[^>]+>/g, '').trim(),
                 cover: makeFantLabCoverUrl(w.image, edId),
                 series: String(w.parent_rusname || '').trim(),
@@ -5368,10 +5396,38 @@ async function saveBookFromModal(openTrackerAfter = false) {
             }
           }
         }
+
+        // Мгновенно подгружаем точные страницы и описание из карточек изданий (параллельно!)
+        const uniqueEdIds = [...new Set(results.map(r => r.editionId).filter(id => id && Number(id) > 0))].slice(0, 8);
+        if (uniqueEdIds.length > 0) {
+          const edDetails = await Promise.all(uniqueEdIds.map(async (id) => {
+            try {
+              const r = await fetchWithTimeout(`https://api.fantlab.ru/edition/${id}`, 3500);
+              return r.ok ? await r.json() : null;
+            } catch (e) { return null; }
+          }));
+          const edMap = {};
+          edDetails.forEach(d => {
+            if (d && (d.edition_id || d.id)) edMap[d.edition_id || d.id] = d;
+          });
+          results.forEach(item => {
+            const d = item.editionId ? edMap[item.editionId] : null;
+            if (d) {
+              if (!item.pages && d.pages) item.pages = parsePagesCount(d.pages);
+              if (!item.annotation && d.description) {
+                item.annotation = String(d.description).replace(/<[^>]+>/g, '').replace(/\[[^\]]+\]/g, '').trim();
+              }
+              if ((!item.author || item.author === 'Автор в карточке') && d.autors) {
+                item.author = String(d.autors).replace(/<[^>]+>/g, '').trim();
+              }
+            }
+          });
+        }
       } catch (e) {}
       return results;
     }
-        // 3. Поиск в Google Play Книгах (20 результатов с приоритетом русских изданий)
+
+    // 3. Поиск в Google Play Книгах
     async function searchGoogleDirectFast(query) {
       const isCyrillicQuery = /[а-яё]/i.test(query);
       const variants = buildSmartQueryVariants(query);
@@ -5396,7 +5452,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
               source: 'Google Книги 🌍',
               title,
               author,
-              pages: Number(v.pageCount || 0) || 0,
+              pages: parsePagesCount(v.pageCount),
               annotation: String(v.description || '').trim(),
               cover: img,
               series: ''
@@ -5405,6 +5461,39 @@ async function saveBookFromModal(openTrackerAfter = false) {
         } catch (e) {}
       }));
       return out;
+    }
+        // Быстрый точечный поиск страниц по названию книги (если книга пришла из ЛитРес/Apple без страниц)
+    async function fetchMissingPagesForCandidate(cand) {
+      if (!cand || cand.pages > 0) return;
+      try {
+        const q = cand.title;
+        const [flEdRes, gRes] = await Promise.all([
+          fetchWithTimeout(`https://api.fantlab.ru/search-editions?q=${encodeURIComponent(q)}&page=1&onlymatches=1`, 3200).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q + ' ' + cand.author)}&maxResults=5`, 3200).then(r => r.ok ? r.json() : null).catch(() => null)
+        ]);
+
+        // Проверяем в Google Books
+        if (gRes?.items) {
+          for (const it of gRes.items) {
+            const p = parsePagesCount(it.volumeInfo?.pageCount);
+            if (p > 30) { cand.pages = p; return; }
+          }
+        }
+
+        // Проверяем в бумажных изданиях FantLab
+        const matches = flEdRes?.matches || (Array.isArray(flEdRes) ? flEdRes : []);
+        const bestEd = matches[0];
+        const edId = bestEd?.edition_id || bestEd?.id;
+        if (edId) {
+          cand.editionId = edId;
+          const r = await fetchWithTimeout(`https://api.fantlab.ru/edition/${edId}`, 3000);
+          if (r.ok) {
+            const fullEd = await r.json();
+            const p = parsePagesCount(fullEd.pages);
+            if (p > 0) cand.pages = p;
+          }
+        }
+      } catch (e) {}
     }
 
     async function searchBookByIsbn() {
@@ -5416,7 +5505,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
         return;
       }
 
-      statusEl.textContent = '⚡ Ищу в ЛитРес/Apple, FantLab и Google Книгах...';
+      statusEl.textContent = '⚡ Ищу книгу, обложку, страницы и аннотацию...';
       listEl.classList.add('hidden');
       listEl.innerHTML = '';
 
@@ -5433,11 +5522,11 @@ async function saveBookFromModal(openTrackerAfter = false) {
           return;
         }
 
-        // Умная склейка: теперь склеиваем ТОЛЬКО если совпадают И название, И автор (чтобы чужие книги с тем же названием не съедали нужную!)
+        // Склеиваем карточки с учётом перестановки «Имя Фамилия» / «Фамилия Имя»
         const mergedMap = new Map();
         for (const item of combined) {
-          const tKey = item.title.toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]/g, '').slice(0, 25);
-          const aKey = item.author.toLowerCase().replace(/ё/g, 'е').replace(/кэлли/g, 'калли').replace(/[^a-zа-я0-9]/g, '').slice(0, 12);
+          const tKey = normTitleForMatch(item.title);
+          const aKey = normAuthorForMatch(item.author);
           const key = `${tKey}__${aKey}`;
           if (!tKey) continue;
 
@@ -5456,16 +5545,25 @@ async function saveBookFromModal(openTrackerAfter = false) {
           }
         }
 
-        // Если у книги из ЛитРес/Apple нет числа бумажных страниц, но среди результатов есть издание с тем же названием и страницами — делимся страницами!
+        // Делимся страницами между одинаковыми названиями книг из разных баз
         const allMerged = Array.from(mergedMap.values());
         for (const b of allMerged) {
+          const bTitle = normTitleForMatch(b.title);
           if (!b.pages) {
-            const donor = allMerged.find(other => other.pages > 0 && other.title.toLowerCase() === b.title.toLowerCase());
+            const donor = combined.find(other => other.pages > 0 && normTitleForMatch(other.title) === bTitle);
             if (donor) b.pages = donor.pages;
+          }
+          if (!b.series) {
+            const sDonor = combined.find(other => other.series && normTitleForMatch(other.title) === bTitle);
+            if (sDonor) b.series = sDonor.series;
           }
         }
 
         lastFoundCandidates = allMerged.slice(0, 14);
+
+        // Для первых 4 карточек в списке, если страниц всё ещё нет, быстро догружаем их по названию книги
+        await Promise.all(lastFoundCandidates.slice(0, 4).map(c => fetchMissingPagesForCandidate(c)));
+
         await applyFoundBookCandidate(0, false);
 
         listEl.innerHTML = lastFoundCandidates.map((c, idx) => `
@@ -5480,7 +5578,7 @@ async function saveBookFromModal(openTrackerAfter = false) {
                 <div class="text-[11px] truncate" style="color: var(--text-muted)">${escapeHtml(c.author)}</div>
                 <div class="flex flex-wrap items-center gap-1.5 text-[10px] opacity-85">
                   <span class="px-1.5 py-0.2 rounded btn-soft font-semibold">${c.source}</span>
-                  ${c.pages ? `<span>• ${c.pages} стр.</span>` : ''}
+                  ${c.pages ? `<span class="text-amber-300 font-bold">• ${c.pages} стр.</span>` : ''}
                   ${c.annotation ? `<span>• 📜 Аннотация</span>` : ''}
                   ${c.series ? `<span>• 📚 ${escapeHtml(c.series)}</span>` : ''}
                 </div>
@@ -5498,7 +5596,8 @@ async function saveBookFromModal(openTrackerAfter = false) {
       } catch (err) {
         statusEl.textContent = '⚠️ Ошибка соединения при поиске.';
       }
-    }
+                                         }
+    
 
     async function searchCoversOnly() {
       const q = (document.getElementById('isbnInput').value || document.getElementById('modalTitle').value || '').trim();
