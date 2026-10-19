@@ -5715,23 +5715,52 @@ async function saveBookFromModal(openTrackerAfter = false) {
       }
     }
 
+    // Дополнительный широкий веб-поиск обложек по картинкам (без строгих ограничений)
+    async function searchWebImageCovers(query) {
+      const out = [];
+      try {
+        const q = `${query} книга обложка`;
+        const [gImgRes, olRes] = await Promise.all([
+          fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20`, 4500).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetchWithTimeout(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=10`, 4500).then(r => r.ok ? r.json() : null).catch(() => null)
+        ]);
+
+        (gImgRes?.items || []).forEach(it => {
+          const links = it.volumeInfo?.imageLinks;
+          let img = links?.extraLarge || links?.large || links?.medium || links?.thumbnail || links?.smallThumbnail || '';
+          if (img) {
+            img = img.replace(/^http:\/\//i, 'https://').replace('&edge=curl', '');
+            out.push({ cover: img, title: it.volumeInfo?.title || 'Обложка' });
+          }
+        });
+
+        (olRes?.docs || []).forEach(d => {
+          if (d.cover_i) {
+            out.push({ cover: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`, title: d.title || 'Cover' });
+          }
+        });
+      } catch (e) {}
+      return out;
+    }
+
     async function searchCoversOnly() {
       const q = (document.getElementById('isbnInput').value || document.getElementById('modalTitle').value || '').trim();
       const statusEl = document.getElementById('isbnSearchStatus');
       const listEl = document.getElementById('isbnResultsList');
       if (!q) {
-        statusEl.textContent = '⚠️ Впиши название книги в строку поиска!';
+        statusEl.textContent = '⚠️ Впиши название книги в строку поиска или в поле «Название книги»!';
         return;
       }
 
-      statusEl.textContent = '🖼️ Собираю обложки из ЛитРес/Apple, FantLab и Google...';
+      statusEl.textContent = '🖼️ Ищу обложки по всем каталогам и веб-картинкам...';
       listEl.classList.add('hidden');
 
       try {
-        const [appleRes, flRes, gRes] = await Promise.all([
+        const [appleRes, flRes, gRes, webRes] = await Promise.all([
           searchLitresViaAppleDirect(q),
           searchFantLabDeep(q),
-          searchGoogleDirectFast(q)
+          searchGoogleDirectFast(q),
+          searchWebImageCovers(q)
         ]);
 
         const covers = [];
@@ -5742,49 +5771,68 @@ async function saveBookFromModal(openTrackerAfter = false) {
         appleRes.forEach(x => addCov(x.cover, x.title));
         flRes.forEach(x => addCov(x.cover, x.title));
         gRes.forEach(x => addCov(x.cover, x.title));
+        webRes.forEach(x => addCov(x.cover, x.title));
+
+        const yandexSearchUrl = `https://yandex.ru/images/search?text=${encodeURIComponent(q + ' книга обложка')}`;
 
         if (covers.length === 0) {
-          statusEl.textContent = '😿 Обложек по этому запросу не нашлось.';
+          listEl.innerHTML = `
+            <div class="flex items-center justify-between text-xs p-2">
+              <span>😿 В прямых базах не нашлось. Возьмём из Яндекс.Картинок?</span>
+              <a href="${yandexSearchUrl}" target="_blank" class="btn-accent px-3 py-1.5 rounded-xl font-bold">🌐 Открыть Яндекс.Картинки ↗</a>
+            </div>
+          `;
+          listEl.classList.remove('hidden');
+          statusEl.textContent = '💡 Открой Яндекс.Картинки, скопируй ссылку на картинку и вставь в поле URL под обложкой!';
           return;
         }
 
         listEl.innerHTML = `
-          <div class="flex items-center justify-between text-[11px] font-bold mb-1.5">
-            <span style="color: var(--accent)">🖼️ Нажми на любую обложку, чтобы надеть её на книгу:</span>
-            <button type="button" onclick="document.getElementById('isbnResultsList').classList.add('hidden')" class="btn-soft px-2 py-0.5 rounded-lg font-bold">✕ Свернуть</button>
+          <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold mb-1.5">
+            <span style="color: var(--accent)">🖼️ Выбери обложку (она сама сохранится в память планшета для Итогов месяца!):</span>
+            <div class="flex items-center gap-1.5">
+              <a href="${yandexSearchUrl}" target="_blank" class="btn-soft px-2 py-0.5 rounded-lg font-bold" title="Поискать редкую обложку в Яндекс.Картинках">🌐 Яндекс.Картинки ↗</a>
+              <button type="button" onclick="document.getElementById('isbnResultsList').classList.add('hidden')" class="btn-soft px-2 py-0.5 rounded-lg font-bold">✕ Свернуть</button>
+            </div>
           </div>
           <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
-            ${covers.slice(0, 18).map(c => `
+            ${covers.slice(0, 24).map(c => `
               <div onclick="selectCoverFromGallery('${escapeHtmlAttr(c.url)}')" class="cursor-pointer group text-center">
-                <img src="${c.url}" onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src=this.src.replace('data.fantlab.ru','fantlab.ru');}" class="w-full h-24 object-cover rounded-xl border border-white/20 group-hover:border-purple-400 group-hover:scale-105 transition shadow" />
+                <img src="https://wsrv.nl/?url=${encodeURIComponent(c.url)}&w=300&output=jpg" onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='${escapeHtmlAttr(c.url)}';}" class="w-full h-24 object-cover rounded-xl border border-white/20 group-hover:border-purple-400 group-hover:scale-105 transition shadow bg-black/40" />
               </div>
             `).join('')}
           </div>
         `;
         listEl.classList.remove('hidden');
         if (typeof playSound === 'function') playSound('bloop');
-        statusEl.textContent = `🖼️ Найдено обложек: ${covers.length} шт. Выбирай любую!`;
+        statusEl.textContent = `🖼️ Найдено обложек: ${covers.length} шт. Тыкай на любую!`;
       } catch (e) {
         statusEl.textContent = '⚠️ Не удалось загрузить обложки.';
       }
     }
 
-    function selectCoverFromGallery(url) {
-      modalDraft.cover = url;
+    async function selectCoverFromGallery(url) {
+      const statusEl = document.getElementById('isbnSearchStatus');
       const prev = document.getElementById('modalCoverPreview');
-      prev.onerror = function() {
-        if (!this.dataset.fb && this.src.includes('data.fantlab.ru')) {
-          this.dataset.fb = '1';
-          const alt = this.src.replace('data.fantlab.ru', 'fantlab.ru');
-          modalDraft.cover = alt;
-          this.src = alt;
-        }
-      };
-      prev.src = url;
-      if (typeof playSound === 'function') playSound('bloop');
-      // Автоматически сворачиваем галерею обложек после выбора!
       document.getElementById('isbnResultsList').classList.add('hidden');
-      document.getElementById('isbnSearchStatus').textContent = '✨ Обложка установлена, список свёрнут!';
+      if (typeof playSound === 'function') playSound('bloop');
+
+      // Сначала мгновенно показываем превью через быстрый туннель
+      const fastPreview = url.startsWith('data:') ? url : `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=480&output=jpg`;
+      prev.src = fastPreview;
+      modalDraft.cover = url;
+      statusEl.textContent = '⏳ Сохраняю обложку в память устройства для Итогов месяца...';
+
+      // И тут же перегоняем её в настоящий локальный файл (data:image/jpeg), как с планшета!
+      const localDataUrl = await convertExternalUrlToDataUrl(url);
+      if (localDataUrl) {
+        modalDraft.cover = localDataUrl;
+        prev.src = localDataUrl;
+        statusEl.textContent = '✨ Обложка сохранена в память (100% видна в Итогах месяца)!';
+      } else {
+        prev.src = url;
+        statusEl.textContent = '✨ Обложка установлена!';
+      }
     }
     
 
