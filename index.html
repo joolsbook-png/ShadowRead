@@ -4712,16 +4712,73 @@ async function saveBookFromModal(openTrackerAfter = false) {
       return line2 ? [line1, line2] : [line1];
     }
 
-    function loadImageAsync(src) {
+    // Превращает любую интернет-картинку в локальный файл (data:image/jpeg), чтобы Итоги месяца её всегда видели!
+    async function convertExternalUrlToDataUrl(url) {
+      if (!url || url.startsWith('data:')) return url;
+      const cleanUrl = url.replace(/^http:\/\//i, 'https://');
+      const altFantlab = cleanUrl.includes('data.fantlab.ru')
+        ? cleanUrl.replace('data.fantlab.ru', 'fantlab.ru')
+        : cleanUrl;
+
+      const tunnelUrls = [
+        `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=480&q=85&output=jpg`,
+        `https://wsrv.nl/?url=${encodeURIComponent(altFantlab)}&w=480&q=85&output=jpg`,
+        `https://images.weserv.nl/?url=${encodeURIComponent(cleanUrl)}&w=480&q=85&output=jpg`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(cleanUrl)}`,
+        cleanUrl
+      ];
+
+      for (const tUrl of tunnelUrls) {
+        const dataUrl = await new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          const timer = setTimeout(() => { img.src = ''; resolve(null); }, 4500);
+          img.onload = () => {
+            clearTimeout(timer);
+            try {
+              const c = document.createElement('canvas');
+              let w = img.naturalWidth || img.width || 400;
+              let h = img.naturalHeight || img.height || 600;
+              if (w > 500) { h = Math.round((h * 500) / w); w = 500; }
+              c.width = w; c.height = h;
+              c.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(c.toDataURL('image/jpeg', 0.85));
+            } catch (e) {
+              resolve(null);
+            }
+          };
+          img.onerror = () => { clearTimeout(timer); resolve(null); };
+          img.src = tUrl;
+        });
+        if (dataUrl) return dataUrl;
+      }
+      return null;
+    }
+
+    async function loadImageAsync(src) {
+      if (!src) return null;
+      // Если обложка — ещё внешняя ссылка из поиска, на лету перегоняем её в локальную картинку и сохраняем в базу!
+      if (src.startsWith('http')) {
+        const converted = await convertExternalUrlToDataUrl(src);
+        if (converted) {
+          const bookToHeal = state.books.find(b => b.cover === src);
+          if (bookToHeal) {
+            bookToHeal.cover = converted;
+            dbPut('books', bookToHeal).catch(() => {});
+          }
+          src = converted;
+        }
+      }
       return new Promise((resolve) => {
-        if (!src) return resolve(null);
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
         img.onerror = () => resolve(null);
         img.src = src;
       });
     }
+    
 
     function drawCoverImage(ctx, img, x, y, w, h) {
       const imgRatio = img.width / img.height, winRatio = w / h;
