@@ -3333,12 +3333,19 @@ const ACQ_META = {
       document.getElementById('modalCoverPreview').src = compressed;
     }
 
-    function handleCoverUrlInput(url) {
+    async function handleCoverUrlInput(url) {
       if (url && url.trim().startsWith('http')) {
-        modalDraft.cover = url.trim();
-        document.getElementById('modalCoverPreview').src = modalDraft.cover;
+        const cleanUrl = url.trim();
+        document.getElementById('modalCoverPreview').src = cleanUrl;
+        modalDraft.cover = cleanUrl;
+        const localData = await convertExternalUrlToDataUrl(cleanUrl);
+        if (localData) {
+          modalDraft.cover = localData;
+          document.getElementById('modalCoverPreview').src = localData;
+        }
       }
     }
+    
 
     function renderModalStars(val) {
       const rating = Number(val) || 0;
